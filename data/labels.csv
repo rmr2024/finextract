@@ -1,41 +1,41 @@
 filing_id,field,value,prior_value,period_end,xbrl_tag,verified,notes
-AAPL_0000320193-25-000079,revenue,416161000000,391035000000,2025-09-27,RevenueFromContractWithCustomerExcludingAssessedTax,,
+AAPL_0000320193-25-000079,revenue,416161000000,391035000000,2025-09-27,RevenueFromContractWithCustomerExcludingAssessedTax,yes,"Matches income statement 'Total net sales | 416,161 | 391,035' (current + prior)"
 AAPL_0000320193-25-000079,operating_income,133050000000,123216000000,2025-09-27,OperatingIncomeLoss,,
 AAPL_0000320193-25-000079,net_income,112010000000,93736000000,2025-09-27,NetIncomeLoss,,
 AAPL_0000320193-25-000079,eps_diluted,7.46,6.08,2025-09-27,EarningsPerShareDiluted,,
 AAPL_0000320193-25-000079,total_assets,359241000000,364980000000,2025-09-27,Assets,,
-AAPL_0000320193-25-000079,total_liabilities,285508000000,308030000000,2025-09-27,Liabilities,,
+AAPL_0000320193-25-000079,total_liabilities,285508000000,308030000000,2025-09-27,Liabilities,yes,"Matches balance sheet 'Total liabilities | 285,508 | 308,030'"
 AAPL_0000320193-25-000079,stockholders_equity,73733000000,56950000000,2025-09-27,StockholdersEquity,,
 AAPL_0000320193-25-000079,cash,35934000000,29943000000,2025-09-27,CashAndCashEquivalentsAtCarryingValue,,
 AAPL_0000320193-25-000079,long_term_debt,78328000000,85750000000,2025-09-27,LongTermDebtNoncurrent,,
 AAPL_0000320193-25-000079,operating_cash_flow,111482000000,118254000000,2025-09-27,NetCashProvidedByUsedInOperatingActivities,,
 MSFT_0001193125-26-323660,revenue,331839000000,281724000000,2026-06-30,RevenueFromContractWithCustomerExcludingAssessedTax,,
-MSFT_0001193125-26-323660,operating_income,155237000000,128528000000,2026-06-30,OperatingIncomeLoss,,
+MSFT_0001193125-26-323660,operating_income,155237000000,128528000000,2026-06-30,OperatingIncomeLoss,yes,"Matches income statement 'Operating income | 155,237 | 128,528'"
 MSFT_0001193125-26-323660,net_income,133749000000,101832000000,2026-06-30,NetIncomeLoss,,
 MSFT_0001193125-26-323660,eps_diluted,17.95,13.64,2026-06-30,EarningsPerShareDiluted,,
 MSFT_0001193125-26-323660,total_assets,758376000000,619003000000,2026-06-30,Assets,,
 MSFT_0001193125-26-323660,total_liabilities,315989000000,275524000000,2026-06-30,Liabilities,,
 MSFT_0001193125-26-323660,stockholders_equity,442387000000,343479000000,2026-06-30,StockholdersEquity,,
 MSFT_0001193125-26-323660,cash,20935000000,30242000000,2026-06-30,CashAndCashEquivalentsAtCarryingValue,,
-MSFT_0001193125-26-323660,long_term_debt,31067000000,40152000000,2026-06-30,LongTermDebtNoncurrent,,
+MSFT_0001193125-26-323660,long_term_debt,31067000000,40152000000,2026-06-30,LongTermDebtNoncurrent,yes,"Matches balance sheet non-current 'Long-term debt | 31,067 | 40,152'"
 MSFT_0001193125-26-323660,operating_cash_flow,182935000000,136162000000,2026-06-30,NetCashProvidedByUsedInOperatingActivities,,
 KO_0001628280-26-010047,revenue,47941000000,47061000000,2025-12-31,Revenues,,
 KO_0001628280-26-010047,operating_income,13762000000,9992000000,2025-12-31,OperatingIncomeLoss,,
-KO_0001628280-26-010047,net_income,13107000000,10631000000,2025-12-31,NetIncomeLoss,,
+KO_0001628280-26-010047,net_income,13107000000,10631000000,2025-12-31,NetIncomeLoss,yes,"Matches 'Net income attributable to shareowners of The Coca-Cola Company | 13,107 | 10,631' (attributable, not consolidated 13,137)"
 KO_0001628280-26-010047,eps_diluted,3.04,2.46,2025-12-31,EarningsPerShareDiluted,,
 KO_0001628280-26-010047,total_assets,104816000000,100549000000,2025-12-31,Assets,,
 KO_0001628280-26-010047,total_liabilities,,,,,,
 KO_0001628280-26-010047,stockholders_equity,32169000000,24856000000,2025-12-31,StockholdersEquity,,
-KO_0001628280-26-010047,cash,10270000000,10828000000,2025-12-31,CashAndCashEquivalentsAtCarryingValue,,
+KO_0001628280-26-010047,cash,10270000000,10828000000,2025-12-31,CashAndCashEquivalentsAtCarryingValue,yes,"Matches balance sheet 'Cash and cash equivalents | 10,270 | 10,828' (excludes restricted cash)"
 KO_0001628280-26-010047,long_term_debt,,,,,,
 KO_0001628280-26-010047,operating_cash_flow,7408000000,6805000000,2025-12-31,NetCashProvidedByUsedInOperatingActivities,,
 NKE_0000320187-26-000088,revenue,46398000000,46309000000,2026-05-31,RevenueFromContractWithCustomerExcludingAssessedTax,,
 NKE_0000320187-26-000088,operating_income,,,,,,
 NKE_0000320187-26-000088,net_income,3108000000,3219000000,2026-05-31,NetIncomeLoss,,
-NKE_0000320187-26-000088,eps_diluted,2.1,2.16,2026-05-31,EarningsPerShareDiluted,,
+NKE_0000320187-26-000088,eps_diluted,2.1,2.16,2026-05-31,EarningsPerShareDiluted,yes,Matches 'Diluted | 2.10 | 2.16'
 NKE_0000320187-26-000088,total_assets,38410000000,36579000000,2026-05-31,Assets,,
 NKE_0000320187-26-000088,total_liabilities,,,,,,
-NKE_0000320187-26-000088,stockholders_equity,14865000000,13213000000,2026-05-31,StockholdersEquity,,
+NKE_0000320187-26-000088,stockholders_equity,14865000000,13213000000,2026-05-31,StockholdersEquity,yes,"Matches balance sheet 'Total shareholders' equity | 14,865 | 13,213'"
 NKE_0000320187-26-000088,cash,7563000000,7464000000,2026-05-31,CashAndCashEquivalentsAtCarryingValue,,
 NKE_0000320187-26-000088,long_term_debt,5942000000,7961000000,2026-05-31,LongTermDebtNoncurrent,,
 NKE_0000320187-26-000088,operating_cash_flow,2868000000,3698000000,2026-05-31,NetCashProvidedByUsedInOperatingActivities,,
@@ -43,13 +43,13 @@ CAT_0000018230-26-000008,revenue,67589000000,64809000000,2025-12-31,Revenues,,
 CAT_0000018230-26-000008,operating_income,11151000000,13072000000,2025-12-31,OperatingIncomeLoss,,
 CAT_0000018230-26-000008,net_income,,,,,,
 CAT_0000018230-26-000008,eps_diluted,18.81,22.05,2025-12-31,EarningsPerShareDiluted,,
-CAT_0000018230-26-000008,total_assets,98585000000,87764000000,2025-12-31,Assets,,
+CAT_0000018230-26-000008,total_assets,98585000000,87764000000,2025-12-31,Assets,yes,"Matches balance sheet 'Total assets | 98,585 | 87,764' (consolidated column)"
 CAT_0000018230-26-000008,total_liabilities,77267000000,68270000000,2025-12-31,Liabilities,,
 CAT_0000018230-26-000008,stockholders_equity,,,,,,
 CAT_0000018230-26-000008,cash,9980000000,6889000000,2025-12-31,CashAndCashEquivalentsAtCarryingValue,,
 CAT_0000018230-26-000008,long_term_debt,30696000000,27351000000,2025-12-31,LongTermDebtNoncurrent,,
-CAT_0000018230-26-000008,operating_cash_flow,11739000000,12035000000,2025-12-31,NetCashProvidedByUsedInOperatingActivities,,
-JNJ_0000200406-26-000016,revenue,94193000000,88821000000,2025-12-28,RevenueFromContractWithCustomerExcludingAssessedTax,,
+CAT_0000018230-26-000008,operating_cash_flow,11739000000,12035000000,2025-12-31,NetCashProvidedByUsedInOperatingActivities,yes,"Matches cash-flow 'Net cash provided by (used for) operating activities | 11,739 | 12,035' (consolidated)"
+JNJ_0000200406-26-000016,revenue,94193000000,88821000000,2025-12-28,RevenueFromContractWithCustomerExcludingAssessedTax,yes,"Matches 'Sales to customers | $ 94,193 | 88,821'"
 JNJ_0000200406-26-000016,operating_income,,,,,,
 JNJ_0000200406-26-000016,net_income,26804000000,14066000000,2025-12-28,NetIncomeLoss,,
 JNJ_0000200406-26-000016,eps_diluted,11.03,5.79,2025-12-28,EarningsPerShareDiluted,,
@@ -71,7 +71,7 @@ PFE_0000078003-26-000026,long_term_debt,61641000000,57405000000,2025-12-31,LongT
 PFE_0000078003-26-000026,operating_cash_flow,11704000000,12744000000,2025-12-31,NetCashProvidedByUsedInOperatingActivities,,
 WMT_0000104169-26-000055,revenue,713163000000,680985000000,2026-01-31,Revenues,,
 WMT_0000104169-26-000055,operating_income,29825000000,29348000000,2026-01-31,OperatingIncomeLoss,,
-WMT_0000104169-26-000055,net_income,21893000000,19436000000,2026-01-31,NetIncomeLoss,,
+WMT_0000104169-26-000055,net_income,21893000000,19436000000,2026-01-31,NetIncomeLoss,yes,"Matches 'Consolidated net income attributable to Walmart | 21,893 | 19,436'"
 WMT_0000104169-26-000055,eps_diluted,2.73,2.41,2026-01-31,EarningsPerShareDiluted,,
 WMT_0000104169-26-000055,total_assets,284668000000,260823000000,2026-01-31,Assets,,
 WMT_0000104169-26-000055,total_liabilities,,,,,,
@@ -93,7 +93,7 @@ HD_0001628280-26-019436,revenue,164683000000,159514000000,2026-02-01,RevenueFrom
 HD_0001628280-26-019436,operating_income,20890000000,21526000000,2026-02-01,OperatingIncomeLoss,,
 HD_0001628280-26-019436,net_income,14156000000,14806000000,2026-02-01,NetIncomeLoss,,
 HD_0001628280-26-019436,eps_diluted,14.23,14.91,2026-02-01,EarningsPerShareDiluted,,
-HD_0001628280-26-019436,total_assets,105095000000,96119000000,2026-02-01,Assets,,
+HD_0001628280-26-019436,total_assets,105095000000,96119000000,2026-02-01,Assets,yes,"Matches balance sheet 'Total assets | 105,095 | 96,119'"
 HD_0001628280-26-019436,total_liabilities,92282000000,89479000000,2026-02-01,Liabilities,,
 HD_0001628280-26-019436,stockholders_equity,12813000000,6640000000,2026-02-01,StockholdersEquity,,
 HD_0001628280-26-019436,cash,1389000000,1659000000,2026-02-01,CashAndCashEquivalentsAtCarryingValue,,
@@ -126,7 +126,7 @@ MCD_0000063908-26-000035,eps_diluted,11.95,11.39,2025-12-31,EarningsPerShareDilu
 MCD_0000063908-26-000035,total_assets,59515000000,55182000000,2025-12-31,Assets,,
 MCD_0000063908-26-000035,total_liabilities,,,,,,
 MCD_0000063908-26-000035,stockholders_equity,-1791000000,-3797000000,2025-12-31,StockholdersEquity,,
-MCD_0000063908-26-000035,cash,774000000,1085000000,2025-12-31,CashAndCashEquivalentsAtCarryingValue,,
+MCD_0000063908-26-000035,cash,774000000,1085000000,2025-12-31,CashAndCashEquivalentsAtCarryingValue,yes,"Matches balance sheet 'Cash and equivalents | 774 | 1,085'"
 MCD_0000063908-26-000035,long_term_debt,39973000000,38424000000,2025-12-31,LongTermDebtNoncurrent,,
 MCD_0000063908-26-000035,operating_cash_flow,10551000000,9447000000,2025-12-31,NetCashProvidedByUsedInOperatingActivities,,
 DIS_0001744489-25-000155,revenue,94425000000,91361000000,2025-09-27,Revenues,,
@@ -178,7 +178,7 @@ ORCL_0001193125-26-277521,total_liabilities,,,,,,
 ORCL_0001193125-26-277521,stockholders_equity,42508000000,20451000000,2026-05-31,StockholdersEquity,,
 ORCL_0001193125-26-277521,cash,31289000000,10786000000,2026-05-31,CashAndCashEquivalentsAtCarryingValue,,
 ORCL_0001193125-26-277521,long_term_debt,,,,,,
-ORCL_0001193125-26-277521,operating_cash_flow,31977000000,20821000000,2026-05-31,NetCashProvidedByUsedInOperatingActivities,,
+ORCL_0001193125-26-277521,operating_cash_flow,31977000000,20821000000,2026-05-31,NetCashProvidedByUsedInOperatingActivities,yes,"Matches 'Net cash provided by operating activities | 31,977 | 20,821'"
 IBM_0000051143-26-000010,revenue,67535000000,62753000000,2025-12-31,Revenues,,
 IBM_0000051143-26-000010,operating_income,,,,,,
 IBM_0000051143-26-000010,net_income,10593000000,6023000000,2025-12-31,NetIncomeLoss,,
