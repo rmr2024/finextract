@@ -1,4 +1,4 @@
-"""Command line: finextract {download,label,extract,evaluate,demo}"""
+"""Command line: finextract {download,label,extract,evaluate,verify,demo}"""
 import argparse
 import json
 import shutil
@@ -42,6 +42,9 @@ def main(argv=None):
     v = sub.add_parser("evaluate", help="score a run")
     v.add_argument("--run", required=True)
 
+    vf = sub.add_parser("verify", help="snap each answer to its real filing line (offline, no LLM)")
+    vf.add_argument("--run", required=True)
+
     sub.add_parser("demo", help="run the whole pipeline offline on a bundled sample filing")
 
     a = p.parse_args(argv)
@@ -68,6 +71,10 @@ def main(argv=None):
     elif a.cmd == "evaluate":
         from .evaluate import evaluate
         evaluate(a.run, a.data_dir)
+
+    elif a.cmd == "verify":
+        from .verify import verify_run
+        verify_run(a.run, a.data_dir)
 
     elif a.cmd == "demo":
         run_demo(a.data_dir)

@@ -5,10 +5,11 @@ Provider: `openai`  Model: `openai/gpt-oss-120b`  Retrieved chunks (k): 4
 | Metric | Value |
 |---|---|
 | Labeled fields | 44 |
-| Accuracy | 88.6% |
+| Accuracy (exact) | 81.8% |
+| Accuracy (within 0.5%) | 88.6% |
 | Coverage (answered) | 95.5% |
 | Ungrounded answers | 14.3% |
-| Confident-wrong answers | 7.1% |
+| Confident-wrong answers | 14.3% |
 | Tokens in / out | 121,169 / 6,122 |
 | Mean latency per field | 24.02s |
 
@@ -16,7 +17,8 @@ Provider: `openai`  Model: `openai/gpt-oss-120b`  Retrieved chunks (k): 4
 
 | Class | Count |
 |---|---|
-| correct | 39 |
+| correct | 36 |
+| near_miss | 3 |
 | missing | 2 |
 | scale_error | 0 |
 | sign_error | 0 |
@@ -27,9 +29,9 @@ Provider: `openai`  Model: `openai/gpt-oss-120b`  Retrieved chunks (k): 4
 
 | Field | n | Accuracy | Coverage | Ungrounded |
 |---|---|---|---|---|
-| cash | 5 | 100.0% | 100.0% | 20.0% |
+| cash | 5 | 60.0% | 100.0% | 20.0% |
 | eps_diluted | 5 | 80.0% | 100.0% | 20.0% |
-| long_term_debt | 4 | 100.0% | 100.0% | 25.0% |
+| long_term_debt | 4 | 75.0% | 100.0% | 25.0% |
 | net_income | 4 | 100.0% | 100.0% | 0.0% |
 | operating_cash_flow | 5 | 100.0% | 100.0% | 0.0% |
 | operating_income | 4 | 100.0% | 100.0% | 0.0% |

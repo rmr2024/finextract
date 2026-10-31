@@ -5,7 +5,8 @@ Provider: `heuristic`  Model: `None`  Retrieved chunks (k): 6
 | Metric | Value |
 |---|---|
 | Labeled fields | 137 |
-| Accuracy | 46.0% |
+| Accuracy (exact) | 46.0% |
+| Accuracy (within 0.5%) | 46.0% |
 | Coverage (answered) | 75.9% |
 | Ungrounded answers | 0.0% |
 | Confident-wrong answers | 39.4% |
@@ -17,6 +18,7 @@ Provider: `heuristic`  Model: `None`  Retrieved chunks (k): 6
 | Class | Count |
 |---|---|
 | correct | 63 |
+| near_miss | 0 |
 | missing | 33 |
 | scale_error | 14 |
 | sign_error | 2 |

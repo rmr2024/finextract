@@ -134,5 +134,5 @@ UPS_0001628280-26-008432,eps_diluted,6.56,6.56,correct,True,True,Diluted Earning
 UPS_0001628280-26-008432,total_assets,73090000000.0,,missing,False,,
 UPS_0001628280-26-008432,stockholders_equity,16227000000.0,,missing,False,,
 UPS_0001628280-26-008432,cash,5887000000.0,131000000.0,wrong_other,True,True,Cash and cash equivalents | 131 | 131 | — | — | 7.0% | 1 - 10 %
-UPS_0001628280-26-008432,long_term_debt,23585000000.0,23519000000.0,correct,True,True,"Long-term debt and finance leases | 23,519 | 19,446"
+UPS_0001628280-26-008432,long_term_debt,23585000000.0,23519000000.0,near_miss,True,True,"Long-term debt and finance leases | 23,519 | 19,446"
 UPS_0001628280-26-008432,operating_cash_flow,8450000000.0,8450000000.0,correct,True,True,"Net cash from operating activities | 8,450 | 10,122 | 10,238"

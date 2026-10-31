@@ -92,7 +92,7 @@ def test_labels_ignore_quarter_and_other_filings(facts):
 
 # --- evaluation ----------------------------------------------------------
 @pytest.mark.parametrize("pred,cls", [
-    (12412e6, "correct"), (12412, "scale_error"), (-12412e6, "sign_error"),
+    (12412e6, "correct"), (12411e6, "near_miss"), (12412, "scale_error"), (-12412e6, "sign_error"),
     (11493e6, "wrong_period"), (5e9, "wrong_other"), (None, "missing"),
 ])
 def test_classify(pred, cls):
@@ -308,3 +308,71 @@ def test_json_validate_failed_is_a_parse_error_not_a_fallback(monkeypatch):
     out = p.extract(FIELDS_BY_NAME["revenue"], "X", "2026-06-30", ["Revenue | 1"])
     assert out["parse_error"] is True and out["value"] is None
     assert p.json_mode is True
+
+
+# --- stage 2: snap to source -------------------------------------------------
+SNAP_LINES = [
+    "Cash and cash equivalents | 20,935 | 30,242",
+    "Total shareholders' equity | 14,865 | 13,213",
+    "Profit per common share - diluted 2 | 18.81 | 22.05 | 20.12",
+    "Total liabilities | 77,267 | 68,270",
+]
+
+
+def _row(field, value_raw, quote, scale="millions"):
+    from finextract.numbers import apply_scale
+    unit = FIELDS_BY_NAME[field].unit
+    s = "units" if unit != "USD" else scale
+    return {"filing_id": "X", "field": field, "value": apply_scale(parse_number(value_raw), s),
+            "value_raw": value_raw, "scale": s, "quote": quote}
+
+
+def test_snap_corrects_digit_slip():
+    from finextract.verify import snap_row
+    out = snap_row(_row("cash", "20835", "Cash and cash equivalents | 20,935"), SNAP_LINES)
+    assert out["verified"] and out["value"] == 20935e6 and out["value_changed"] is True
+    assert out["verified_line"] == SNAP_LINES[0] and out["quote_found"] and out["number_in_quote"]
+
+
+def test_snap_typo_quote_still_matches():
+    from finextract.verify import snap_row
+    out = snap_row(_row("stockholders_equity", "14865", "Total shareholders’ equity | 14,965 | 13,213"), SNAP_LINES)
+    assert out["verified"] and out["match_ratio"] >= 0.85
+    assert out["value"] == 14865e6 and out["value_changed"] is False
+
+
+def test_snap_no_match_gives_none():
+    from finextract.verify import snap_row
+    out = snap_row(_row("revenue", "999", "Totally real line | 999"), SNAP_LINES)
+    assert out["verified"] is False and out["value"] is None and out["quote_found"] is False
+    # same digits but a different row label is not accepted either
+    out = snap_row(_row("total_liabilities", "77767", "Total assets | 77,267 | 68,270"), SNAP_LINES)
+    assert out["verified"] is False and out["value"] is None
+
+
+def test_snap_picks_current_not_prior_column():
+    from finextract.verify import snap_row
+    eps = snap_row(_row("eps_diluted", "18", "Profit per common share - diluted 2 | 18.81 | 22.05 | 20.12"), SNAP_LINES)
+    assert eps["value"] == 18.81
+    liab = snap_row(_row("total_liabilities", "77767", "Total liabilities | 77,267 | 68,270"), SNAP_LINES)
+    assert liab["value"] == 77267e6  # not the prior-year 68,270
+
+
+def test_snap_leaves_unanswered_rows_alone():
+    from finextract.verify import snap_row
+    out = snap_row({"filing_id": "X", "field": "cash", "value": None, "value_raw": None, "quote": ""}, SNAP_LINES)
+    assert out["value"] is None and out["verified"] is False and out["match_ratio"] is None
+
+
+def test_snap_short_quote_prefers_full_matching_row():
+    from finextract.verify import snap_row
+    lines = ["Cash and cash equivalents | 12,976", "Cash and cash equivalents | 20,935 | 30,242"]
+    out = snap_row(_row("cash", "20835", "Cash and cash equivalents | 20,935"), lines)
+    assert out["verified_line"] == lines[1] and out["value"] == 20935e6
+
+
+def test_snap_digit_slip_beats_numerically_nearer_column():
+    from finextract.verify import snap_row
+    lines = ["Total sales and revenues | 67,589 | 64,809 | 67,060"]
+    out = snap_row(_row("revenue", "67189", "Total sales and revenues | 67,589 | 64,809 | 67,060"), lines)
+    assert out["value"] == 67589e6

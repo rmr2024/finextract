@@ -16,8 +16,8 @@ MSFT_0001193125-26-323660,eps_diluted,17.95,17.95,correct,True,True,Diluted earn
 MSFT_0001193125-26-323660,total_assets,758376000000.0,758376000000.0,correct,True,True,"Total assets | 758,376 | 619,003"
 MSFT_0001193125-26-323660,total_liabilities,315989000000.0,,missing,False,,Total liabilities not explicitly listed in the provided excerpts
 MSFT_0001193125-26-323660,stockholders_equity,442387000000.0,442387000000.0,correct,True,True,"Total stockholders’ equity | 442,387 | 343,479 | 268,477"
-MSFT_0001193125-26-323660,cash,20935000000.0,20835000000.0,correct,True,False,"Cash and cash equivalents | 20,935"
-MSFT_0001193125-26-323660,long_term_debt,31067000000.0,31167000000.0,correct,True,False,"Long-term debt | 31,067 | 40,152"
+MSFT_0001193125-26-323660,cash,20935000000.0,20835000000.0,near_miss,True,False,"Cash and cash equivalents | 20,935"
+MSFT_0001193125-26-323660,long_term_debt,31067000000.0,31167000000.0,near_miss,True,False,"Long-term debt | 31,067 | 40,152"
 MSFT_0001193125-26-323660,operating_cash_flow,182935000000.0,182935000000.0,correct,True,True,"Net cash from operations | 182,935 | 136,162 | 118,548"
 KO_0001628280-26-010047,revenue,47941000000.0,47941000000.0,correct,True,True,"Total | 19,127 | 28,814 | 47,941"
 KO_0001628280-26-010047,operating_income,13762000000.0,13762000000.0,correct,True,True,"Operating income (loss) | 4,298 | 3,742 | 5,070 | 2,042 | 426 | 15,578 | ( 1,816 ) | — | 13,762"
@@ -40,6 +40,6 @@ CAT_0000018230-26-000008,operating_income,11151000000.0,11151000000.0,correct,Tr
 CAT_0000018230-26-000008,eps_diluted,18.81,18.0,wrong_other,True,False,Profit per common share — diluted 2 | 18.81 | 22.05 | 20.12
 CAT_0000018230-26-000008,total_assets,98585000000.0,98585000000.0,correct,True,True,"Total assets | 98,585 | 87,764"
 CAT_0000018230-26-000008,total_liabilities,77267000000.0,77767000000.0,wrong_other,True,False,"Total liabilities | 77,267 | 68,270"
-CAT_0000018230-26-000008,cash,9980000000.0,9986000000.0,correct,True,True,"Cash, cash equivalents and restricted cash at end of period | 9,986 | 6,896 | 9,336 | 6,170 | 650 | 726 | — | —"
+CAT_0000018230-26-000008,cash,9980000000.0,9986000000.0,near_miss,True,True,"Cash, cash equivalents and restricted cash at end of period | 9,986 | 6,896 | 9,336 | 6,170 | 650 | 726 | — | —"
 CAT_0000018230-26-000008,long_term_debt,30696000000.0,30696000000.0,correct,True,True,"Long-term debt due after one year | 30,696 | 27,351 | 10,955 | 8,731 | 21,018 | 18,787 | (1,277) | 10 | (167) | 10"
 CAT_0000018230-26-000008,operating_cash_flow,11739000000.0,11739000000.0,correct,True,True,"Net cash provided by (used for) operating activities | 11,739 | 12,035 | 12,885"

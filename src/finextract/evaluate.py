@@ -1,11 +1,12 @@
 """Score a prediction run against labels and classify every error.
 
 Headline metrics:
-  accuracy        correct / labeled fields
+  accuracy        exact matches (after scale) / labeled fields
+  accuracy_tolerant  within 0.5% / labeled fields (the old headline; hides one-digit slips)
   coverage        answered / labeled fields
   ungrounded rate answered values whose quote isn't in the filing or doesn't contain the number
                   (the measurable form of "the model invented it")
-  confident-wrong answered but wrong — worse than saying "not found"
+  confident-wrong answered but not an exact match — worse than saying "not found"
 """
 import csv
 import json
@@ -15,15 +16,17 @@ from pathlib import Path
 from .labels import load_labels
 from .numbers import numbers_match
 
-CLASSES = ["correct", "missing", "scale_error", "sign_error", "wrong_period", "wrong_other"]
+CLASSES = ["correct", "near_miss", "missing", "scale_error", "sign_error", "wrong_period", "wrong_other"]
 
 
 def classify(pred, label):
     v, truth = pred, label["value"]
     if v is None:
         return "missing"
-    if numbers_match(v, truth):
+    if numbers_match(v, truth, rel_tol=1e-9):  # exact, allowing only float noise from scaling
         return "correct"
+    if numbers_match(v, truth):
+        return "near_miss"  # within 0.5%: usually a one-digit slip or a near-identical line item
     if truth and v:
         ratio = abs(v / truth)
         if any(abs(ratio - s) / s < 0.01 for s in (1e3, 1e6, 1e9, 1e-3, 1e-6, 1e-9)):
@@ -70,7 +73,8 @@ def evaluate(run_name, data_dir="data", report_dir="reports"):
         n = len(rows)
         ans = [r for r in rows if r["answered"]]
         c = Counter(r["class"] for r in rows)
-        return {"n": n, "accuracy": c["correct"] / n, "coverage": len(ans) / n,
+        return {"n": n, "accuracy": c["correct"] / n, "accuracy_tolerant": (c["correct"] + c["near_miss"]) / n,
+                "coverage": len(ans) / n,
                 "ungrounded": (sum(1 for r in ans if not r["grounded"]) / len(ans)) if ans else 0.0,
                 "confident_wrong": (sum(1 for r in ans if r["class"] != "correct") / len(ans)) if ans else 0.0,
                 "classes": c}
@@ -91,7 +95,8 @@ def evaluate(run_name, data_dir="data", report_dir="reports"):
              f"Provider: `{meta.get('provider')}`  Model: `{meta.get('model')}`  Retrieved chunks (k): {meta.get('k')}", "",
              "| Metric | Value |", "|---|---|",
              f"| Labeled fields | {overall['n']} |",
-             f"| Accuracy | {pct(overall['accuracy'])} |",
+             f"| Accuracy (exact) | {pct(overall['accuracy'])} |",
+             f"| Accuracy (within 0.5%) | {pct(overall['accuracy_tolerant'])} |",
              f"| Coverage (answered) | {pct(overall['coverage'])} |",
              f"| Ungrounded answers | {pct(overall['ungrounded'])} |",
              f"| Confident-wrong answers | {pct(overall['confident_wrong'])} |",
@@ -111,6 +116,6 @@ def evaluate(run_name, data_dir="data", report_dir="reports"):
         w.writeheader()
         w.writerows(items)
 
-    print("\n".join(lines[:13]))
+    print("\n".join(lines[:14]))
     print(f"\n  full report: {md}\n  per-item:    {rep / (run_name + '_items.csv')}")
     return overall

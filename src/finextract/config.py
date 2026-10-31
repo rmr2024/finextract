@@ -42,7 +42,8 @@ FIELDS = [
           query="total stockholders equity shareholders equity consolidated balance sheets",
           aliases=("total stockholders' equity", "total shareholders' equity", "total stockholders’ equity",
                    "total shareholders’ equity")),
-    Field("cash", "Cash and cash equivalents at fiscal year end",
+    Field("cash", "Cash and cash equivalents at fiscal year end, as shown on the balance sheet. "
+          "Exclude restricted cash: do not use a \"cash, cash equivalents and restricted cash\" total",
           ("CashAndCashEquivalentsAtCarryingValue",), "instant",
           query="cash and cash equivalents consolidated balance sheets",
           aliases=("cash and cash equivalents",)),

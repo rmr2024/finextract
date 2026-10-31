@@ -5,10 +5,11 @@ Provider: `heuristic`  Model: `None`  Retrieved chunks (k): 6
 | Metric | Value |
 |---|---|
 | Labeled fields | 137 |
-| Accuracy | 55.5% |
+| Accuracy (exact) | 54.7% |
+| Accuracy (within 0.5%) | 55.5% |
 | Coverage (answered) | 75.9% |
 | Ungrounded answers | 0.0% |
-| Confident-wrong answers | 26.9% |
+| Confident-wrong answers | 27.9% |
 | Tokens in / out | 0 / 0 |
 | Mean latency per field | 0.00s |
 
@@ -16,7 +17,8 @@ Provider: `heuristic`  Model: `None`  Retrieved chunks (k): 6
 
 | Class | Count |
 |---|---|
-| correct | 76 |
+| correct | 75 |
+| near_miss | 1 |
 | missing | 33 |
 | scale_error | 0 |
 | sign_error | 2 |
@@ -29,7 +31,7 @@ Provider: `heuristic`  Model: `None`  Retrieved chunks (k): 6
 |---|---|---|---|---|
 | cash | 14 | 57.1% | 85.7% | 0.0% |
 | eps_diluted | 15 | 53.3% | 80.0% | 0.0% |
-| long_term_debt | 14 | 64.3% | 85.7% | 0.0% |
+| long_term_debt | 14 | 57.1% | 85.7% | 0.0% |
 | net_income | 15 | 46.7% | 86.7% | 0.0% |
 | operating_cash_flow | 15 | 60.0% | 60.0% | 0.0% |
 | operating_income | 12 | 66.7% | 75.0% | 0.0% |
