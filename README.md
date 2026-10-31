@@ -100,6 +100,13 @@ results, spot-check about 10% of `data/labels.csv` against the filings:
 - **The heuristic's 0% ungrounded is by design, not a finding.** It only returns a number copied
   from a real line of the filing, so its quote is always found. Real hallucination rates
   come from the LLM runs.
+- **The LLM's ungrounded answers are copy errors, not invented lines.** gpt-oss-120b quoted a
+  real line (or a near-copy of one) every time, but it changed one digit when writing out the
+  value (20,935 to 20,835; 67,589 to 67,189) or dropped decimals (18.81 to 18). The grounding
+  check flagged all 6, including every confident-wrong answer.
+- **The evaluator's 0.5% tolerance hides some wrong values.** Two of those digit slips and one
+  wrong-concept answer (cash *including restricted cash*, 9,986 vs 9,980) are within 0.5%, so
+  they count as "correct". Exact-match accuracy is reported alongside.
 
 ## Baseline results
 
@@ -149,6 +156,34 @@ Sets are in `config.DEV_TICKERS` / `config.TEST_TICKERS`. v1 = baseline, v2 = sc
 | Test | v2 `test_heuristic_v2` | 137 | 55.5% | 75.9% | 26.9% | 0 |
 
 Ungrounded is 0.0% in every heuristic run, by construction.
+
+### LLM results (dev)
+
+`openai/gpt-oss-120b` on Groq's free tier (`--provider openai --workers 1 --k 4`, JSON mode,
+`reasoning_effort=low`, `FINEXTRACT_MIN_INTERVAL=25`). Run `dev_gptoss_v1`: 121,169 tokens in and
+6,122 out for 50 fields, with 100% JSON parse and 0 errors.
+
+| Dev (44 labeled) | Accuracy | Exact-match accuracy | Coverage | Ungrounded | Confident-wrong | s/field |
+|---|---|---|---|---|---|---|
+| Heuristic v2 | 68.2% | 68.2% | 77.3% | 0.0% (by design) | 11.8% | 0.0 |
+| gpt-oss-120b v1 | 88.6% | 81.8% | 95.5% | 14.3% (6/42) | 7.1% (3/42) | 24.0* |
+
+\* Set by the 25 s free-tier throttle, not by model speed.
+
+The 6 ungrounded answers (each one checked against `data/text`):
+
+| Item | Model value | Model quote | Real line | Cause |
+|---|---|---|---|---|
+| MSFT cash | 20,835 | `Cash and cash equivalents \| 20,935` | `Cash and cash equivalents \| 20,935 \| 30,242` | Right line, one digit changed in the value; within 0.5%, so it is scored "correct" |
+| MSFT long-term debt | 31,167 | `Long-term debt \| 31,067 \| 40,152` | same | Right line, one digit changed; scored "correct" |
+| NKE equity | 14,865 | `Total shareholders' equity \| 14,965 \| 13,213` | `... \| 14,865 \| 13,213` | Value right, digit changed in the *quote* (quote not found) |
+| CAT revenue | 67,189 | `Total sales and revenues \| 67,589 \| ...` | same | Right line, one digit changed (0.6% off, wrong) |
+| CAT diluted EPS | 18 | `Profit per common share - diluted 2 \| 18.81 \| ...` | same | Decimals dropped |
+| CAT total liabilities | 77,767 | `Total liabilities \| 77,267 \| 68,270` | same | Right line, one digit changed (wrong) |
+
+Other errors: 2 missing (MSFT total liabilities and NKE total assets, the same 2 rows retrieval
+missed for the heuristic), plus CAT cash, a grounded wrong-concept answer that counts as correct
+under the 0.5% tolerance.
 
 ## Roadmap
 

@@ -142,6 +142,9 @@ class OpenAICompatProvider:
             except RuntimeError as e:
                 if not str(e).startswith(("400", "422")):
                     raise
+                if "json_validate_failed" in str(e) or "Parsing failed" in str(e):
+                    # Groq: this one generation wasn't valid JSON. A parse error, not a rejected parameter.
+                    return {"value": None, "scale": "units", "quote": "", "parse_error": True, "usage": {}}
                 self.json_mode = False
                 log.warning("server rejected %s (%s); continuing without JSON mode",
                             json.dumps(extra), str(e)[:120])

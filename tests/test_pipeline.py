@@ -299,3 +299,12 @@ def test_daily_limit_stops_and_resume_finishes(tmp_path):
     assert second.calls == [f.name for f in FIELDS][4:]  # only the remaining fields
     meta, preds = load_predictions(tmp_path / "predictions" / "r.jsonl")
     assert len(preds) == len(FIELDS) and meta["run"] == "r"
+
+
+def test_json_validate_failed_is_a_parse_error_not_a_fallback(monkeypatch):
+    msg = '{"error": {"message": "Parsing failed. The model generated output that could not be parsed.", "code": "json_validate_failed"}}'
+    monkeypatch.setattr("finextract.llm.requests.post", lambda *a, **k: _FakeResp(400, text=msg))
+    p = _openai_local(monkeypatch)
+    out = p.extract(FIELDS_BY_NAME["revenue"], "X", "2026-06-30", ["Revenue | 1"])
+    assert out["parse_error"] is True and out["value"] is None
+    assert p.json_mode is True
