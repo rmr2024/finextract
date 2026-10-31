@@ -4,13 +4,15 @@ No verification or retries on purpose: this is the baseline you measure first.
 Stage 2 adds the fix and compares against these numbers.
 """
 import json
+import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from pathlib import Path
 
-from .config import FIELDS
-from .llm import DailyLimitReached
+from .config import FIELDS, LEGACY_V1_CUTOFF
+from .llm import DailyLimitReached, prompt_fingerprint
 from .numbers import apply_scale, find_numbers, normalize_ws, numbers_match, parse_number
 from .retrieve import BM25
 from .textproc import chunk_text, load_filing_text
@@ -72,6 +74,33 @@ def _done_keys(path):
     return {k for k, ok in done.items() if ok}
 
 
+def _file_started_at(path):
+    """Creation time of a predictions file (Windows birth time); the start of a run made before
+    runs recorded started_at. Unreliable for files git has rewritten."""
+    st = os.stat(path)
+    return datetime.fromtimestamp(getattr(st, "st_birthtime", None) or st.st_ctime).astimezone()
+
+
+def _check_prompt(path, version, phash):
+    """Refuse to resume a run whose rows were made with a different prompt."""
+    rows = [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
+    meta = next((r["_meta"] for r in rows if "_meta" in r), {})
+    seen = {(r.get("prompt_version"), r["prompt_hash"]) for r in rows if r.get("prompt_hash")}
+    if meta.get("prompt_hash"):
+        seen.add((meta.get("prompt_version"), meta["prompt_hash"]))
+    if not seen:  # legacy run, written before prompt hashes existed
+        started = datetime.fromisoformat(meta["started_at"]) if meta.get("started_at") else _file_started_at(path)
+        if started >= datetime.fromisoformat(LEGACY_V1_CUTOFF):
+            raise SystemExit(f"Can't resume {path.name}: it has no prompt hash and started at "
+                             f"{started.isoformat(timespec='seconds')}, after the v2 wording existed, so its "
+                             f"prompt is unknown. Start a new --run name.")
+        seen = {("v1", prompt_fingerprint("v1")[1])}
+    if seen != {(version, phash)}:
+        made = ", ".join(f"{v} ({h})" for v, h in sorted(seen, key=str))
+        raise SystemExit(f"Can't resume {path.name}: it was made with prompt {made}, but the current prompt is "
+                         f"{version} ({phash}). Set FINEXTRACT_PROMPT_VERSION to match, or start a new --run name.")
+
+
 def run_extraction(filings, provider, run_name, fields=FIELDS, k=6, workers=4, data_dir="data", resume=False):
     """Rows are appended as they finish, so an interrupted run keeps its work.
 
@@ -81,15 +110,21 @@ def run_extraction(filings, provider, run_name, fields=FIELDS, k=6, workers=4, d
     out_path = Path(data_dir) / "predictions" / f"{run_name}.jsonl"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     text_cache = str(Path(data_dir) / "text")
+    version, phash = prompt_fingerprint()
+    if resume and out_path.exists():
+        _check_prompt(out_path, version, phash)
     done = _done_keys(out_path) if resume and out_path.exists() else set()
     if not (resume and out_path.exists()):
-        meta = {"run": run_name, "provider": provider.name, "model": getattr(provider, "model", None), "k": k}
+        meta = {"run": run_name, "provider": provider.name, "model": getattr(provider, "model", None), "k": k,
+                "prompt_version": version, "prompt_hash": phash,
+                "started_at": datetime.now().astimezone().isoformat(timespec="seconds")}
         out_path.write_text(json.dumps({"_meta": meta}) + "\n", encoding="utf-8")
     if done:
         print(f"  resuming: {len(done)} fields already done")
     lock, stop, all_rows = threading.Lock(), threading.Event(), []
 
     def write(row):
+        row.update(prompt_version=version, prompt_hash=phash)
         with lock, out_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(row) + "\n")
 

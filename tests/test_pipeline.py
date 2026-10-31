@@ -376,3 +376,68 @@ def test_snap_digit_slip_beats_numerically_nearer_column():
     lines = ["Total sales and revenues | 67,589 | 64,809 | 67,060"]
     out = snap_row(_row("revenue", "67189", "Total sales and revenues | 67,589 | 64,809 | 67,060"), lines)
     assert out["value"] == 67589e6
+
+
+# --- prompt versioning -------------------------------------------------------
+def test_prompt_versions_and_hash(monkeypatch):
+    from finextract.config import field_description
+    from finextract.llm import build_prompt, prompt_fingerprint
+    cash = FIELDS_BY_NAME["cash"]
+    assert "restricted" not in field_description(cash, "v1")
+    assert "Exclude restricted cash" in field_description(cash, "v2")
+    assert prompt_fingerprint("v1") != prompt_fingerprint("v2")
+    monkeypatch.delenv("FINEXTRACT_PROMPT_VERSION", raising=False)
+    assert prompt_fingerprint()[0] == "v1"  # v1 is the default
+    monkeypatch.setenv("FINEXTRACT_PROMPT_VERSION", "v2")
+    assert "Exclude restricted cash" in build_prompt(cash, "X", "2026", ["Cash | 1"])
+    monkeypatch.setenv("FINEXTRACT_PROMPT_VERSION", "v9")
+    with pytest.raises(SystemExit):
+        prompt_fingerprint()
+
+
+def _rec():
+    return {"id": "EXWD", "ticker": "EXWD", "path": str(SAMPLE / "sample_10k.html"), "report_date": "2026-06-30"}
+
+
+def test_run_records_prompt_and_resume_refuses_mismatch(tmp_path, monkeypatch):
+    from finextract.evaluate import load_predictions
+    from finextract.llm import prompt_fingerprint
+    monkeypatch.setenv("FINEXTRACT_PROMPT_VERSION", "v1")
+    with pytest.raises(SystemExit):
+        run_extraction([_rec()], QuotaProvider(budget=3), "r", workers=1, data_dir=str(tmp_path))
+    meta, preds = load_predictions(tmp_path / "predictions" / "r.jsonl")
+    v1 = prompt_fingerprint("v1")
+    assert (meta["prompt_version"], meta["prompt_hash"]) == v1 and "started_at" in meta
+    assert all((p["prompt_version"], p["prompt_hash"]) == v1 for p in preds.values())
+    monkeypatch.setenv("FINEXTRACT_PROMPT_VERSION", "v2")
+    with pytest.raises(SystemExit, match="v1 .*current prompt is v2"):
+        run_extraction([_rec()], QuotaProvider(budget=100), "r", workers=1, data_dir=str(tmp_path), resume=True)
+    monkeypatch.setenv("FINEXTRACT_PROMPT_VERSION", "v1")
+    run_extraction([_rec()], QuotaProvider(budget=100), "r", workers=1, data_dir=str(tmp_path), resume=True)
+
+
+def _legacy_file(tmp_path):
+    p = tmp_path / "predictions" / "old.jsonl"
+    p.parent.mkdir(parents=True)
+    row = {"filing_id": "EXWD", "field": "revenue", "value": 1.0, "error": None}
+    p.write_text(json.dumps({"_meta": {"run": "old", "k": 4}}) + "\n" + json.dumps(row) + "\n", encoding="utf-8")
+    return p
+
+
+@pytest.mark.parametrize("started,version,ok", [
+    ("2026-10-31T18:20:47+05:30", "v1", True),   # before the v2 wording: counts as v1
+    ("2026-10-31T18:20:47+05:30", "v2", False),
+    ("2026-10-31T19:00:00+05:30", "v1", False),  # after: prompt unknown, refuse
+])
+def test_legacy_rows_without_hash(tmp_path, monkeypatch, started, version, ok):
+    from datetime import datetime
+    import finextract.extract as ex
+    from finextract.llm import prompt_fingerprint
+    p = _legacy_file(tmp_path)
+    monkeypatch.setattr(ex, "_file_started_at", lambda path: datetime.fromisoformat(started))
+    v, h = prompt_fingerprint(version)
+    if ok:
+        ex._check_prompt(p, v, h)
+    else:
+        with pytest.raises(SystemExit, match="Can't resume"):
+            ex._check_prompt(p, v, h)

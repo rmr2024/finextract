@@ -42,8 +42,7 @@ FIELDS = [
           query="total stockholders equity shareholders equity consolidated balance sheets",
           aliases=("total stockholders' equity", "total shareholders' equity", "total stockholders’ equity",
                    "total shareholders’ equity")),
-    Field("cash", "Cash and cash equivalents at fiscal year end, as shown on the balance sheet. "
-          "Exclude restricted cash: do not use a \"cash, cash equivalents and restricted cash\" total",
+    Field("cash", "Cash and cash equivalents at fiscal year end",
           ("CashAndCashEquivalentsAtCarryingValue",), "instant",
           query="cash and cash equivalents consolidated balance sheets",
           aliases=("cash and cash equivalents",)),
@@ -59,6 +58,32 @@ FIELDS = [
 ]
 
 FIELDS_BY_NAME = {f.name: f for f in FIELDS}
+
+# Prompt versions. A field description is part of the LLM prompt, so changing one changes results;
+# runs record the version and a hash, and --resume refuses to mix them.
+#   v1: original wording (default)
+#   v2: cash excludes restricted cash
+PROMPT_VERSIONS = {
+    "v1": {},
+    "v2": {"cash": "Cash and cash equivalents at fiscal year end, as shown on the balance sheet. "
+                   "Exclude restricted cash: do not use a \"cash, cash equivalents and restricted cash\" total"},
+}
+DEFAULT_PROMPT_VERSION = "v1"
+# v2 wording was written after test5_gptoss_v1 started (18:20:46) and committed at 18:25:57, so a run
+# without a stored prompt hash that started before this moment used v1.
+LEGACY_V1_CUTOFF = "2026-10-31T18:21:00+05:30"
+
+
+def prompt_version():
+    import os
+    v = os.environ.get("FINEXTRACT_PROMPT_VERSION") or DEFAULT_PROMPT_VERSION
+    if v not in PROMPT_VERSIONS:
+        raise SystemExit(f"FINEXTRACT_PROMPT_VERSION={v!r}; expected one of {sorted(PROMPT_VERSIONS)}")
+    return v
+
+
+def field_description(f, version=None):
+    return PROMPT_VERSIONS[version or prompt_version()].get(f.name, f.description)
 
 # Dev set: tune against these. Test set: held out. Never inspect test-set errors while tuning;
 # only compare its aggregate metrics before/after a change.

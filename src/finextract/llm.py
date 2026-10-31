@@ -5,6 +5,7 @@
 - openai    : any OpenAI-compatible endpoint (needs OPENAI_API_KEY; set OPENAI_BASE_URL
               for Ollama http://localhost:11434/v1, Groq, Together, etc. — local Ollama is free).
 """
+import hashlib
 import json
 import logging
 import os
@@ -14,6 +15,7 @@ import time
 
 import requests
 
+from .config import FIELDS, field_description, prompt_version
 from .numbers import detect_scale, find_numbers
 
 log = logging.getLogger(__name__)
@@ -36,10 +38,18 @@ Return JSON exactly in this shape:
   "quote": "<the exact line from the excerpts that contains the value>"}}"""
 
 
-def build_prompt(field, company, period, chunks):
+def build_prompt(field, company, period, chunks, version=None):
     context = "\n\n".join(f"[Excerpt {i + 1}]\n{c}" for i, c in enumerate(chunks))
     return PROMPT.format(company=company, period=period, field=field.name,
-                         description=field.description, context=context)
+                         description=field_description(field, version), context=context)
+
+
+def prompt_fingerprint(version=None):
+    """(version, 12-char hash) of everything that shapes the prompt: system text, template, field wording."""
+    v = version or prompt_version()
+    blob = json.dumps({"system": SYSTEM, "template": PROMPT,
+                       "fields": {f.name: field_description(f, v) for f in FIELDS}}, sort_keys=True)
+    return v, hashlib.sha256(blob.encode("utf-8")).hexdigest()[:12]
 
 
 def parse_json_response(text):
