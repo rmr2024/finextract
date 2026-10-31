@@ -8,7 +8,7 @@ from finextract.config import FIELDS_BY_NAME
 from finextract.evaluate import classify
 from finextract.extract import extract_filing, grounding
 from finextract.labels import label_filing
-from finextract.llm import HeuristicProvider, parse_json_response
+from finextract.llm import HeuristicProvider, OpenAICompatProvider, parse_json_response
 from finextract.numbers import apply_scale, detect_scale, normalize_ws, parse_number
 from finextract.retrieve import BM25
 from finextract.textproc import chunk_text, html_to_text, load_filing_text
@@ -169,3 +169,53 @@ def test_demo_all_correct(tmp_path):
     run_demo(str(tmp_path))
     rows = list(csv.DictReader(open(tmp_path / "demo" / "reports" / "demo_items.csv", encoding="utf-8")))
     assert rows and all(r["class"] == "correct" for r in rows if r["label"])
+
+
+class _FakeResp:
+    def __init__(self, status, payload=None, text=""):
+        self.status_code, self._payload, self.text = status, payload, text
+
+    def json(self):
+        return self._payload
+
+
+def _openai_local(monkeypatch, **env):
+    monkeypatch.setenv("OPENAI_BASE_URL", "http://localhost:11434/v1")
+    monkeypatch.delenv("FINEXTRACT_CONTEXT_TOKENS", raising=False)
+    monkeypatch.delenv("OLLAMA_CONTEXT_LENGTH", raising=False)
+    for k, v in env.items():
+        monkeypatch.setenv(k, v)
+    return OpenAICompatProvider(model="fake-model")
+
+
+def test_json_mode_falls_back_when_rejected(monkeypatch, caplog):
+    calls = []
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        calls.append(json)
+        if "response_format" in json:
+            return _FakeResp(400, text='{"error": "response_format not supported"}')
+        content = '{"value": 2148, "scale": "millions", "quote": "Operating income | 2,148"}'
+        return _FakeResp(200, {"choices": [{"message": {"content": content}}],
+                               "usage": {"prompt_tokens": 10, "completion_tokens": 5}})
+
+    monkeypatch.setattr("finextract.llm.requests.post", fake_post)
+    p = _openai_local(monkeypatch)
+    f = FIELDS_BY_NAME["operating_income"]
+    with caplog.at_level("WARNING", logger="finextract.llm"):
+        out = p.extract(f, "X", "2026-06-30", ["Operating income | 2,148"])
+    assert out["value"] == 2148 and out["usage"]["input_tokens"] == 10
+    assert "response_format" in calls[0] and "response_format" not in calls[1]
+    assert calls[1]["temperature"] == 0
+    assert p.json_mode is False and "json_object" in caplog.text
+    p.extract(f, "X", "2026-06-30", ["Operating income | 2,148"])
+    assert len(calls) == 3 and "response_format" not in calls[2]  # no retry with JSON mode once rejected
+
+
+def test_context_warning(monkeypatch, caplog):
+    p = _openai_local(monkeypatch, OLLAMA_CONTEXT_LENGTH="1000")
+    with caplog.at_level("WARNING", logger="finextract.llm"):
+        assert p._check_context("x" * 200) < 1000
+        assert "exceeds context" not in caplog.text
+        p._check_context("x" * 8000)
+    assert "exceeds context 1000" in caplog.text

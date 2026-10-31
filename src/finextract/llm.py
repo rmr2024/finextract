@@ -6,6 +6,7 @@
               for Ollama http://localhost:11434/v1, Groq, Together, etc. — local Ollama is free).
 """
 import json
+import logging
 import os
 import re
 import time
@@ -13,6 +14,8 @@ import time
 import requests
 
 from .numbers import detect_scale, find_numbers
+
+log = logging.getLogger(__name__)
 
 SYSTEM = (
     "You extract figures from SEC 10-K filings. Use only the excerpts provided. "
@@ -103,13 +106,40 @@ class OpenAICompatProvider:
         if not self.key and "localhost" not in self.base and "127.0.0.1" not in self.base:
             raise SystemExit("Set OPENAI_API_KEY (or OPENAI_BASE_URL to a local server)")
         self.max_tokens = max_tokens
+        # Ollama silently truncates prompts longer than its context window (num_ctx), so warn first.
+        self.context_tokens = int(os.environ.get("FINEXTRACT_CONTEXT_TOKENS")
+                                  or os.environ.get("OLLAMA_CONTEXT_LENGTH") or 8192)
+        self.json_mode = True
+        self._warned_context = False
+
+    def _check_context(self, prompt):
+        est = (len(SYSTEM) + len(prompt)) // 4 + self.max_tokens  # ~4 chars per token
+        if est > self.context_tokens and not self._warned_context:
+            self._warned_context = True
+            log.warning("prompt ~%d tokens (incl. %d output) exceeds context %d; the server may truncate it. "
+                        "Raise the server's context or lower --k.", est, self.max_tokens, self.context_tokens)
+        return est
 
     def extract(self, field, company, period, chunks):
+        prompt = build_prompt(field, company, period, chunks)
+        self._check_context(prompt)
         body = {"model": self.model, "max_tokens": self.max_tokens, "temperature": 0,
                 "messages": [{"role": "system", "content": SYSTEM},
-                             {"role": "user", "content": build_prompt(field, company, period, chunks)}]}
+                             {"role": "user", "content": prompt}]}
         headers = {"Authorization": f"Bearer {self.key}", "Content-Type": "application/json"}
-        data = _post_with_retry(f"{self.base}/chat/completions", headers, body)
+        url = f"{self.base}/chat/completions"
+        if self.json_mode:
+            try:
+                data = _post_with_retry(url, headers, {**body, "response_format": {"type": "json_object"}})
+            except RuntimeError as e:
+                if not str(e).startswith(("400", "422")):
+                    raise
+                self.json_mode = False
+                log.warning("server rejected response_format=json_object (%s); continuing without JSON mode",
+                            str(e)[:120])
+                data = _post_with_retry(url, headers, body)
+        else:
+            data = _post_with_retry(url, headers, body)
         out = parse_json_response(data["choices"][0]["message"]["content"])
         u = data.get("usage", {})
         out["usage"] = {"input_tokens": u.get("prompt_tokens"), "output_tokens": u.get("completion_tokens")}
