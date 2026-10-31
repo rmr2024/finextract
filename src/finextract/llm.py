@@ -111,6 +111,10 @@ class OpenAICompatProvider:
                                   or os.environ.get("OLLAMA_CONTEXT_LENGTH") or 8192)
         self.json_mode = True
         self._warned_context = False
+        # Local thinking models (Qwen 3.5, Gemma 4) otherwise spend max_tokens on hidden reasoning
+        # and return empty content. Dropped together with JSON mode if the server rejects it.
+        local = "localhost" in self.base or "127.0.0.1" in self.base
+        self.reasoning_effort = os.environ.get("FINEXTRACT_REASONING_EFFORT", "none" if local else "")
 
     def _check_context(self, prompt):
         est = (len(SYSTEM) + len(prompt)) // 4 + self.max_tokens  # ~4 chars per token
@@ -129,14 +133,17 @@ class OpenAICompatProvider:
         headers = {"Authorization": f"Bearer {self.key}", "Content-Type": "application/json"}
         url = f"{self.base}/chat/completions"
         if self.json_mode:
+            extra = {"response_format": {"type": "json_object"}}
+            if self.reasoning_effort:
+                extra["reasoning_effort"] = self.reasoning_effort
             try:
-                data = _post_with_retry(url, headers, {**body, "response_format": {"type": "json_object"}})
+                data = _post_with_retry(url, headers, {**body, **extra})
             except RuntimeError as e:
                 if not str(e).startswith(("400", "422")):
                     raise
                 self.json_mode = False
-                log.warning("server rejected response_format=json_object (%s); continuing without JSON mode",
-                            str(e)[:120])
+                log.warning("server rejected %s (%s); continuing without JSON mode",
+                            json.dumps(extra), str(e)[:120])
                 data = _post_with_retry(url, headers, body)
         else:
             data = _post_with_retry(url, headers, body)
@@ -148,7 +155,7 @@ class OpenAICompatProvider:
 
 def _post_with_retry(url, headers, body, retries=5):
     for attempt in range(retries):
-        r = requests.post(url, headers=headers, json=body, timeout=120)
+        r = requests.post(url, headers=headers, json=body, timeout=float(os.environ.get("FINEXTRACT_TIMEOUT", 600)))
         if r.status_code == 200:
             return r.json()
         if r.status_code in (429, 500, 502, 503, 529):

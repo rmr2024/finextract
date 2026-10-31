@@ -183,6 +183,7 @@ def _openai_local(monkeypatch, **env):
     monkeypatch.setenv("OPENAI_BASE_URL", "http://localhost:11434/v1")
     monkeypatch.delenv("FINEXTRACT_CONTEXT_TOKENS", raising=False)
     monkeypatch.delenv("OLLAMA_CONTEXT_LENGTH", raising=False)
+    monkeypatch.delenv("FINEXTRACT_REASONING_EFFORT", raising=False)
     for k, v in env.items():
         monkeypatch.setenv(k, v)
     return OpenAICompatProvider(model="fake-model")
@@ -206,6 +207,7 @@ def test_json_mode_falls_back_when_rejected(monkeypatch, caplog):
         out = p.extract(f, "X", "2026-06-30", ["Operating income | 2,148"])
     assert out["value"] == 2148 and out["usage"]["input_tokens"] == 10
     assert "response_format" in calls[0] and "response_format" not in calls[1]
+    assert calls[0]["reasoning_effort"] == "none" and "reasoning_effort" not in calls[1]
     assert calls[1]["temperature"] == 0
     assert p.json_mode is False and "json_object" in caplog.text
     p.extract(f, "X", "2026-06-30", ["Operating income | 2,148"])
@@ -219,3 +221,19 @@ def test_context_warning(monkeypatch, caplog):
         assert "exceeds context" not in caplog.text
         p._check_context("x" * 8000)
     assert "exceeds context 1000" in caplog.text
+
+
+def test_request_timeout_configurable(monkeypatch):
+    from finextract.llm import _post_with_retry
+    seen = []
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        seen.append(timeout)
+        return _FakeResp(200, {"ok": True})
+
+    monkeypatch.setattr("finextract.llm.requests.post", fake_post)
+    monkeypatch.delenv("FINEXTRACT_TIMEOUT", raising=False)
+    _post_with_retry("http://x", {}, {})
+    monkeypatch.setenv("FINEXTRACT_TIMEOUT", "30")
+    _post_with_retry("http://x", {}, {})
+    assert seen == [600.0, 30.0]

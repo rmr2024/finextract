@@ -1,0 +1,138 @@
+filing_id,field,label,pred,class,answered,grounded,quote
+JNJ_0000200406-26-000016,revenue,94193000000.0,,missing,False,,
+JNJ_0000200406-26-000016,net_income,26804000000.0,26804000000.0,correct,True,True,"Net earnings from continuing operations | 26,804 | 14,066 | 13,326"
+JNJ_0000200406-26-000016,eps_diluted,11.03,2429.4,wrong_other,True,True,"Diluted | 2,429.4 | 2,429.4 | 2,560.4"
+JNJ_0000200406-26-000016,total_assets,199210000000.0,199210000000.0,correct,True,True,"Total assets | $ 199,210 | 180,104"
+JNJ_0000200406-26-000016,total_liabilities,117666000000.0,117666000000.0,correct,True,True,"Total liabilities | 117,666 | 108,614"
+JNJ_0000200406-26-000016,cash,19709000000.0,19709000000.0,correct,True,True,"Cash and cash equivalents (Notes 1 and 2) | $ 19,709 | 24,105"
+JNJ_0000200406-26-000016,long_term_debt,39438000000.0,39438000000.0,correct,True,True,"Long-term debt (Note 7) | 39,438 | 30,651"
+JNJ_0000200406-26-000016,operating_cash_flow,24530000000.0,,missing,False,,
+PFE_0000078003-26-000026,revenue,62579000000.0,62579000000.0,correct,True,True,"Total revenues | 62,579 | 63,627 | 59,553"
+PFE_0000078003-26-000026,net_income,7771000000.0,7812000000.0,wrong_other,True,True,"Net income before allocation to noncontrolling interests | 7,812 | 8,062 | 2,158"
+PFE_0000078003-26-000026,eps_diluted,1.36,,missing,False,,
+PFE_0000078003-26-000026,total_assets,208160000000.0,208160000000.0,correct,True,True,"Total assets | 208,160 | 213,396"
+PFE_0000078003-26-000026,total_liabilities,121385000000.0,121385000000.0,correct,True,True,"Total liabilities | 121,385 | 124,899"
+PFE_0000078003-26-000026,stockholders_equity,86476000000.0,,missing,False,,
+PFE_0000078003-26-000026,cash,1142000000.0,1142000000.0,correct,True,True,"Cash and cash equivalents | 1,142 | 1,043"
+PFE_0000078003-26-000026,long_term_debt,61641000000.0,61641000000.0,correct,True,True,"Long-term debt | 61,641 | 57,405"
+PFE_0000078003-26-000026,operating_cash_flow,11704000000.0,,missing,False,,
+WMT_0000104169-26-000055,revenue,713163000000.0,482975000000.0,wrong_other,True,True,"Net sales | 482,975 | 462,415 | 441,817"
+WMT_0000104169-26-000055,operating_income,29825000000.0,29825000000.0,correct,True,True,"Operating income | 29,825 | 29,348 | 27,012"
+WMT_0000104169-26-000055,net_income,21893000000.0,,missing,False,,
+WMT_0000104169-26-000055,eps_diluted,2.73,2.73,correct,True,True,Diluted net income per common share attributable to Walmart | 2.73 | 2.41 | 1.91
+WMT_0000104169-26-000055,total_assets,284668000000.0,284668000000.0,correct,True,True,"Total assets | 284,668 | 260,823"
+WMT_0000104169-26-000055,stockholders_equity,99617000000.0,105887000000.0,wrong_other,True,True,"Total shareholders' equity | 105,887 | 97,421"
+WMT_0000104169-26-000055,cash,10727000000.0,10727000000.0,correct,True,True,"Cash and cash equivalents | 10,727 | 9,037"
+WMT_0000104169-26-000055,long_term_debt,34624000000.0,3542000000.0,wrong_other,True,True,"Long-term debt due within one year | 3,542 | 2,598"
+WMT_0000104169-26-000055,operating_cash_flow,41565000000.0,41565000000.0,correct,True,True,"Net cash provided by operating activities | 41,565 | 36,443 | 35,726"
+COST_0000909832-26-000093,revenue,303154000000.0,297247000000.0,wrong_other,True,True,"Net sales | 297,247 | 269,912 | 249,625"
+COST_0000909832-26-000093,operating_income,11685000000.0,11685000000.0,correct,True,True,"Operating income | 11,685 | 10,383 | 9,285"
+COST_0000909832-26-000093,net_income,9226000000.0,7367000000.0,wrong_other,True,True,"Net income | — | — | — | — | 7,367 | 7,367"
+COST_0000909832-26-000093,eps_diluted,20.76,20.76,correct,True,True,Diluted | 20.76 | 18.21 | 16.56
+COST_0000909832-26-000093,total_assets,89045000000.0,89045000000.0,correct,True,True,"TOTAL ASSETS | 89,045 | 77,099"
+COST_0000909832-26-000093,total_liabilities,53242000000.0,53242000000.0,correct,True,True,"TOTAL LIABILITIES | 53,242 | 47,935"
+COST_0000909832-26-000093,stockholders_equity,35803000000.0,,missing,False,,
+COST_0000909832-26-000093,cash,20207000000.0,20207000000.0,correct,True,True,"Cash and cash equivalents | 20,207 | 14,161"
+COST_0000909832-26-000093,long_term_debt,3914000000.0,3914000000.0,correct,True,True,"Long-term debt, excluding current portion | 3,914 | 5,713"
+COST_0000909832-26-000093,operating_cash_flow,15817000000.0,15817000000.0,correct,True,True,"Net cash provided by operating activities | 15,817 | 13,335 | 11,339"
+HD_0001628280-26-019436,revenue,164683000000.0,164683000000.0,correct,True,True,"Net sales | 164,683 | 159,514 | 152,669"
+HD_0001628280-26-019436,operating_income,20890000000.0,20890000000.0,correct,True,True,"Operating income | 20,890 | 21,526 | 21,689"
+HD_0001628280-26-019436,net_income,14156000000.0,14156000000.0,correct,True,True,"Net earnings | 14,156 | 14,806 | 15,143"
+HD_0001628280-26-019436,eps_diluted,14.23,995.0,wrong_other,True,True,"Diluted weighted average common shares | 995 | 993 | 1,002"
+HD_0001628280-26-019436,total_assets,105095000000.0,105095000000.0,correct,True,True,"Total assets | 105,095 | 96,119"
+HD_0001628280-26-019436,total_liabilities,92282000000.0,92282000000.0,correct,True,True,"Total liabilities | 92,282 | 89,479"
+HD_0001628280-26-019436,stockholders_equity,12813000000.0,12813000000.0,correct,True,True,"Total stockholders’ equity | 12,813 | 6,640"
+HD_0001628280-26-019436,cash,1389000000.0,1389000000.0,correct,True,True,"Cash and cash equivalents | 1,389 | 1,659"
+HD_0001628280-26-019436,long_term_debt,49397000000.0,46341000000.0,wrong_other,True,True,"Long-term debt, excluding current installments | 46,341 | 48,485"
+HD_0001628280-26-019436,operating_cash_flow,16325000000.0,16325000000.0,correct,True,True,"Net cash provided by operating activities | 16,325 | 19,810 | 21,172"
+PEP_0000077476-26-000007,revenue,93925000000.0,,missing,False,,
+PEP_0000077476-26-000007,operating_income,11498000000.0,,missing,False,,
+PEP_0000077476-26-000007,net_income,8240000000.0,8295000000.0,wrong_other,True,True,"Net income | 8,295 | 9,626 | 9,155"
+PEP_0000077476-26-000007,eps_diluted,6.0,8240.0,wrong_other,True,True,"Diluted | 8,240 | 1,373 | 9,578 | 1,378 | 9,074 | 1,383"
+PEP_0000077476-26-000007,total_assets,107399000000.0,107399000000.0,correct,True,True,"Total Assets | 107,399 | 99,467"
+PEP_0000077476-26-000007,total_liabilities,86852000000.0,86852000000.0,correct,True,True,"Total Liabilities | 86,852 | 81,296"
+PEP_0000077476-26-000007,stockholders_equity,20406000000.0,,missing,False,,
+PEP_0000077476-26-000007,cash,9159000000.0,8553000000.0,wrong_other,True,True,"Cash and Cash Equivalents and Restricted Cash, Beginning of Year | 8,553 | 9,761 | 5,100"
+PEP_0000077476-26-000007,long_term_debt,42321000000.0,42321000000.0,correct,True,True,"Long-Term Debt Obligations | 42,321 | 37,224"
+PEP_0000077476-26-000007,operating_cash_flow,12087000000.0,12087000000.0,correct,True,True,"Net Cash Provided by Operating Activities | 12,087 | 12,507 | 13,442"
+PG_0000080424-26-000103,revenue,87032000000.0,16023000000.0,wrong_other,True,True,"Net sales | 16,023 | 6,918 | 12,456 | 30,314 | 20,401 | 919 | 87,032"
+PG_0000080424-26-000103,operating_income,19748000000.0,19748000000.0,correct,True,True,"OPERATING INCOME | 19,748 | 20,451 | 18,545"
+PG_0000080424-26-000103,net_income,16046000000.0,16144000000.0,wrong_other,True,True,"NET EARNINGS | 16,144 | 16,065 | 14,974"
+PG_0000080424-26-000103,eps_diluted,6.62,6.62,correct,True,True,Diluted net earnings per common share (1) | 6.62 | 0.37 | (0.11) | 6.89
+PG_0000080424-26-000103,total_assets,126521000000.0,126521000000.0,correct,True,True,"TOTAL ASSETS | 126,521 | 125,231"
+PG_0000080424-26-000103,total_liabilities,72210000000.0,72210000000.0,correct,True,True,"TOTAL LIABILITIES | 72,210 | 72,946"
+PG_0000080424-26-000103,long_term_debt,22842000000.0,22842000000.0,correct,True,True,"LONG-TERM DEBT | 22,842 | 24,995"
+PG_0000080424-26-000103,operating_cash_flow,19556000000.0,19556000000.0,correct,True,True,"Net cash provided by operating activities | 19,556 | 17,817"
+MCD_0000063908-26-000035,revenue,26885000000.0,16548000000.0,wrong_other,True,True,"Revenues from franchised restaurants | 16,548 | 15,715 | 15,437"
+MCD_0000063908-26-000035,operating_income,12393000000.0,12393000000.0,correct,True,True,"Operating income | 12,393 | 11,712 | 11,647"
+MCD_0000063908-26-000035,net_income,8563000000.0,8563000000.0,correct,True,True,"Net income | 8,563 | 8,223 | 8,469"
+MCD_0000063908-26-000035,eps_diluted,11.95,,missing,False,,
+MCD_0000063908-26-000035,total_assets,59515000000.0,59515000000.0,correct,True,True,"Total assets | 59,515 | 55,182"
+MCD_0000063908-26-000035,stockholders_equity,-1791000000.0,1791000000.0,sign_error,True,True,"Total shareholders’ equity (deficit) | ( 1,791 ) | ( 3,797 )"
+MCD_0000063908-26-000035,cash,774000000.0,,missing,False,,
+MCD_0000063908-26-000035,long_term_debt,39973000000.0,39973000000.0,correct,True,True,"Long-term debt | 39,973 | 38,424"
+MCD_0000063908-26-000035,operating_cash_flow,10551000000.0,,missing,False,,
+DIS_0001744489-25-000155,revenue,94425000000.0,94425000000.0,correct,True,True,"Total revenues | 94,425 | 91,361 | 88,898"
+DIS_0001744489-25-000155,operating_income,17551000000.0,,missing,False,,
+DIS_0001744489-25-000155,net_income,12404000000.0,13431000000.0,wrong_other,True,True,"Net income | 13,431 | 5,773 | 3,390"
+DIS_0001744489-25-000155,eps_diluted,6.85,6.85,correct,True,True,Diluted | 6.85 | 2.72 | 1.29
+DIS_0001744489-25-000155,total_assets,197514000000.0,197514000000.0,correct,True,True,"Total assets | 197,514 | 196,219"
+DIS_0001744489-25-000155,stockholders_equity,109869000000.0,,missing,False,,
+DIS_0001744489-25-000155,cash,5695000000.0,5695000000.0,correct,True,True,"Cash and cash equivalents | 5,695 | 6,002"
+DIS_0001744489-25-000155,long_term_debt,35315000000.0,,missing,False,,
+DIS_0001744489-25-000155,operating_cash_flow,18101000000.0,,missing,False,,
+NFLX_0001065280-26-000034,revenue,45183036000.0,45183036000.0,correct,True,True,"Revenues | 45,183,036 | 39,000,966 | 33,723,297 | 6,182,070 | 16%"
+NFLX_0001065280-26-000034,operating_income,13326603000.0,13326603000.0,correct,True,True,"Operating income | 13,326,603 | 10,417,614 | 6,954,003"
+NFLX_0001065280-26-000034,net_income,10981201000.0,10981201000.0,correct,True,True,"Net income | 10,981,201 | 8,711,631 | 5,407,990"
+NFLX_0001065280-26-000034,eps_diluted,2.53,2.53,correct,True,True,Diluted earnings per share | 2.53 | 1.98 | 1.20
+NFLX_0001065280-26-000034,total_assets,55596993000.0,55596993000.0,correct,True,True,"Total assets | 55,596,993 | 53,630,374"
+NFLX_0001065280-26-000034,total_liabilities,28981505000.0,28981505000.0,correct,True,True,"Total liabilities | 28,981,505 | 28,886,807"
+NFLX_0001065280-26-000034,stockholders_equity,26615488000.0,26615488000.0,correct,True,True,"Total stockholders’ equity | 26,615,488 | 24,743,567"
+NFLX_0001065280-26-000034,cash,9033681000.0,9033681000.0,correct,True,True,"Cash and cash equivalents | 9,033,681 | 7,804,733"
+NFLX_0001065280-26-000034,long_term_debt,13463971000.0,13463971000.0,correct,True,True,"Long-term debt | 13,463,971 | 13,798,351"
+NFLX_0001065280-26-000034,operating_cash_flow,10149273000.0,10149273000.0,correct,True,True,"Net cash provided by operating activities | 10,149,273 | 7,361,364 | 7,274,301"
+INTC_0000050863-26-000011,revenue,52853000000.0,33346000000.0,wrong_other,True,True,"Revenue | 33,346 | 16,125 | 49,471 | 17,317 | 3,601 | — | ( 17,288 ) | 53,101"
+INTC_0000050863-26-000011,operating_income,-2214000000.0,2214000000.0,sign_error,True,True,"Operating income (loss) | ( 2,214 ) | ( 11,678 ) | 93"
+INTC_0000050863-26-000011,net_income,-267000000.0,26000000.0,wrong_other,True,True,"Net income (loss) | 26 | ( 19,233 ) | 1,675"
+INTC_0000050863-26-000011,eps_diluted,-0.06,4530.0,wrong_other,True,True,"Diluted | 4,530 | 4,280 | 4,212"
+INTC_0000050863-26-000011,total_assets,211429000000.0,211429000000.0,correct,True,True,"Total assets | 211,429 | 196,485"
+INTC_0000050863-26-000011,stockholders_equity,114281000000.0,126360000000.0,wrong_other,True,True,"Total stockholders' equity | 126,360 | 105,032"
+INTC_0000050863-26-000011,cash,14265000000.0,8249000000.0,wrong_period,True,True,"Cash and cash equivalents, beginning of period | 8,249 | 7,079 | 11,144"
+INTC_0000050863-26-000011,long_term_debt,44086000000.0,46585000000.0,wrong_other,True,True,"Long-term debt | 46,585 | 50,011"
+INTC_0000050863-26-000011,operating_cash_flow,9697000000.0,,missing,False,,
+CSCO_0000858877-26-000132,revenue,63325000000.0,63325000000.0,correct,True,True,"Total revenue | 63,325 | 56,654 | 53,803"
+CSCO_0000858877-26-000132,operating_income,15368000000.0,15368000000.0,correct,True,True,"OPERATING INCOME | 15,368 | 11,760 | 12,181"
+CSCO_0000858877-26-000132,net_income,13267000000.0,13267000000.0,correct,True,True,"NET INCOME | 13,267 | 10,180 | 10,320"
+CSCO_0000858877-26-000132,eps_diluted,3.33,3.33,correct,True,True,Diluted | 3.33 | 2.55 | 2.54
+CSCO_0000858877-26-000132,total_assets,129637000000.0,,missing,False,,
+CSCO_0000858877-26-000132,total_liabilities,79352000000.0,79352000000.0,correct,True,True,"Total liabilities | 79,352 | 75,448"
+CSCO_0000858877-26-000132,stockholders_equity,50285000000.0,,missing,False,,
+CSCO_0000858877-26-000132,cash,7218000000.0,7218000000.0,correct,True,True,"Cash and cash equivalents | 7,218 | 8,346"
+CSCO_0000858877-26-000132,long_term_debt,19372000000.0,19372000000.0,correct,True,True,"Long-term debt | 19,372 | 22,861"
+CSCO_0000858877-26-000132,operating_cash_flow,14177000000.0,14177000000.0,correct,True,True,"Net cash provided by operating activities | 14,177 | 14,193 | 10,880"
+ORCL_0001193125-26-277521,revenue,67357000000.0,58530000000.0,wrong_other,True,True,"Total revenues | 58,530 | 19% | 17% | 49,230"
+ORCL_0001193125-26-277521,operating_income,20606000000.0,20606000000.0,correct,True,True,"Operating income | 20,606 | 17,678 | 15,353"
+ORCL_0001193125-26-277521,net_income,17087000000.0,17087000000.0,correct,True,True,"Net income | 17,087 | 12,443 | 10,467"
+ORCL_0001193125-26-277521,eps_diluted,5.83,5.83,correct,True,True,Diluted earnings per share attributable to common shareholders | 5.83 | 4.34 | 3.71
+ORCL_0001193125-26-277521,total_assets,261759000000.0,,missing,False,,
+ORCL_0001193125-26-277521,stockholders_equity,42508000000.0,43056000000.0,wrong_other,True,True,"Total stockholders’ equity | 43,056 | 20,969"
+ORCL_0001193125-26-277521,cash,31289000000.0,10786000000.0,wrong_period,True,True,"Cash and cash equivalents at beginning of period | 10,786 | 10,454 | 9,765"
+ORCL_0001193125-26-277521,operating_cash_flow,31977000000.0,31977000000.0,correct,True,True,"Net cash provided by operating activities | 31,977 | 20,821 | 18,673"
+IBM_0000051143-26-000010,revenue,67535000000.0,,missing,False,,
+IBM_0000051143-26-000010,net_income,10593000000.0,,missing,False,,
+IBM_0000051143-26-000010,eps_diluted,11.17,,missing,False,,
+IBM_0000051143-26-000010,total_assets,151880000000.0,,missing,False,,
+IBM_0000051143-26-000010,total_liabilities,119139000000.0,,missing,False,,
+IBM_0000051143-26-000010,stockholders_equity,32648000000.0,,missing,False,,
+IBM_0000051143-26-000010,cash,13587000000.0,,missing,False,,
+IBM_0000051143-26-000010,long_term_debt,54836000000.0,,missing,False,,
+IBM_0000051143-26-000010,operating_cash_flow,13193000000.0,,missing,False,,
+UPS_0001628280-26-008432,revenue,88661000000.0,88661000000.0,correct,True,True,"Revenue | 88,661 | 91,070 | 90,958"
+UPS_0001628280-26-008432,operating_income,7867000000.0,,missing,False,,
+UPS_0001628280-26-008432,net_income,5572000000.0,5572000000.0,correct,True,True,"Net Income | 5,572 | 5,782 | 6,708"
+UPS_0001628280-26-008432,eps_diluted,6.56,6.56,correct,True,True,Diluted Earnings Per Share | 6.56 | 6.75 | 7.80
+UPS_0001628280-26-008432,total_assets,73090000000.0,,missing,False,,
+UPS_0001628280-26-008432,stockholders_equity,16227000000.0,,missing,False,,
+UPS_0001628280-26-008432,cash,5887000000.0,131000000.0,wrong_other,True,True,Cash and cash equivalents | 131 | 131 | — | — | 7.0% | 1 - 10 %
+UPS_0001628280-26-008432,long_term_debt,23585000000.0,23519000000.0,correct,True,True,"Long-term debt and finance leases | 23,519 | 19,446"
+UPS_0001628280-26-008432,operating_cash_flow,8450000000.0,8450000000.0,correct,True,True,"Net cash from operating activities | 8,450 | 10,122 | 10,238"
