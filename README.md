@@ -98,7 +98,36 @@ results, spot-check about 10% of `data/labels.csv` against the filings:
   `scale_error`. LLM extractors see the same chunk boundaries, so measure how often this
   happens on real filings.
 
-*(Add real results tables here after running the benchmark.)*
+## Baseline results
+
+`finextract extract --provider heuristic --run baseline_heuristic` on the latest 10-K of
+AAPL, MSFT, KO, NKE, CAT (10 fields each, 44 with XBRL labels; BM25 top-6 chunks).
+
+| Metric | Value |
+|---|---|
+| Labeled fields | 44 |
+| Accuracy | 61.4% (27/44) |
+| Coverage (answered) | 77.3% (34/44) |
+| Ungrounded answers | 0.0% |
+| Confident-wrong answers | 20.6% (7/34) |
+
+Root causes of the 17 non-correct items (each checked against `data/text`):
+
+| Cause | Count | Items |
+|---|---|---|
+| Alias gap: the filing uses a line-item name the heuristic doesn't know | 8 | KO revenue ("Net operating revenues"), KO equity ("Equity attributable to shareowners"), NKE cash ("Cash and equivalents"), NKE + MSFT + CAT operating cash flow, CAT operating income ("Operating profit"), CAT diluted EPS |
+| Wrong line: prefix/first-match takes the current portion, a segment, or a sub-line | 4 | AAPL + CAT long-term debt (current portion), CAT revenue ("Revenues of Financial Products"), KO operating income (first segment column) |
+| Scale lost: the "(In millions)" header sits in a different chunk from the row | 3 | MSFT equity, KO net income, CAT cash |
+| Retrieval miss: the correct line exists but isn't in the top-6 chunks | 2 | MSFT total liabilities, NKE total assets |
+
+Examples:
+
+- **Scale lost (MSFT equity):** the quote is `Total stockholders' equity | 442,387 | ...`, so the
+  extractor returns 442,387 instead of 442,387,000,000, because the chunk holding that row
+  has no "(In millions)" hint.
+- **Wrong line (CAT long-term debt):** the alias `long-term debt` prefix-matches
+  `Long-term debt due within one year | 7,120`, which comes before the correct
+  `Long-term debt due after one year | 30,696`.
 
 ## Roadmap
 
