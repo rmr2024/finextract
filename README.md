@@ -91,6 +91,14 @@ results, spot-check about 10% of `data/labels.csv` against the filings:
 - Wrong → set `verified` to `fixed:<correct value>` (the evaluator uses your value)
 - Note anything odd in `notes`
 
+**Label QA (2026-10-31): 0 of 15 mismatched.** The sample was 10 dev labels (one per field) and 5 test
+labels (JNJ revenue, WMT net income, HD total assets, MCD cash, ORCL operating cash flow). Each was
+compared with the filing text without looking at any predictions. All 15 match the primary-statement
+row for both the current and prior year, and are marked `verified=yes` with the matching line in
+`notes`. At n=15 that only loosely bounds the label error rate (one-sided 95% upper bound ~18%).
+It is consistent with the errors above coming from the extractors, but more labels would need checking
+to rule out label noise.
+
 ## Findings so far
 
 - **Scale propagation was the largest single fixable error.** The "(In millions)" header often
@@ -191,6 +199,13 @@ The 6 ungrounded answers (each one checked against `data/text`):
 Other errors: 2 missing (MSFT total liabilities and NKE total assets, the same 2 rows retrieval
 missed for the heuristic), plus CAT cash, a grounded wrong-concept answer (`near_miss`).
 
+### Test set (gpt-oss): in progress
+
+`test5_gptoss_v1` covers JNJ WMT HD MCD ORCL with the same settings and prompt v1 as dev. It has 33 of
+50 fields done (JNJ, WMT and HD complete, MCD 3 of 10, ORCL 0). Groq's free-tier daily token limit
+stopped it cleanly on 2026-10-31. Test results and `verify` on test are only reported once all 50
+fields are done.
+
 ### Stage 2: snap to source (offline)
 
 `finextract verify --run X` writes `X_verified`. It is post-processing only, with no LLM calls (~4 s
@@ -228,9 +243,15 @@ Two rules were tightened after the first dev pass, which got 2 changes wrong:
 Still wrong after verification: 2 missing (retrieval) and CAT cash (wrong concept, restricted cash
 included). Snapping can only fix the number; it cannot fix the wrong line or a missing line.
 
-**Field definition change (future runs only):** the `cash` description in `config.py` now says to
-exclude restricted cash. The description is part of the prompt, so this changes only runs made after
-2026-10-31. `dev_gptoss_v1` and `test5_gptoss_v1` were extracted with the old wording.
+**Prompt versions:** field descriptions are part of the prompt, so they are versioned. Set them with
+`FINEXTRACT_PROMPT_VERSION`:
+- `v1`: the original wording, and the default.
+- `v2`: `cash` excludes restricted cash.
+
+Every run's metadata and every row store `prompt_version` and a `prompt_hash`, and `--resume` refuses
+to mix prompts. Rows written before hashes existed count as v1 only if the run started before
+2026-10-31 18:21 +05:30, when the v2 wording first existed. `dev_gptoss_v1` and `test5_gptoss_v1` are
+both v1 (hash `5959365c4c18`). v2 has not been run yet.
 
 ## Roadmap
 

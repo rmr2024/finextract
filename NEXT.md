@@ -1,50 +1,57 @@
-# Next steps (updated 2026-10-31, Day 3 part 2)
+# Next steps (updated 2026-10-31, Day 4)
 
-## Current state
+## Done
 
-- **Headline accuracy is now exact match after scale.** The old 0.5% figure is kept as
-  `accuracy_tolerant`, and values within 0.5% that aren't exact are classed `near_miss`.
-- **Dev results (44 labeled):**
-  - heuristic v2: 68.2%;
-  - gpt-oss-120b `dev_gptoss_v1`: 81.8% exact, 14.3% ungrounded;
-  - the same run after `finextract verify` (snap to source, offline): **93.2% exact, 0% ungrounded,
-    2.4% confident-wrong**, with no correct value broken.
-- **Test set:** test5 run `test5_gptoss_v1` (JNJ WMT HD MCD ORCL) was started on 2026-10-31 in a
-  separate window, logging to `logs/groq_test5.log`. It uses the same settings and prompt as dev; it
-  started before the cash-description change. It will likely stop at the Groq daily token cap.
-  Test errors have not been inspected.
-- **Cash field:** its description now excludes restricted cash. This changes the prompt, so it only
-  affects runs after 2026-10-31.
+- **Exact-match accuracy is the headline.** The old 0.5% figure is kept as `accuracy_tolerant`.
+- **Dev results (gpt-oss-120b):**
+  - `dev_gptoss_v1`: 81.8% exact.
+  - After `finextract verify` (snap to source, offline): **93.2% exact, 0% ungrounded, 2.4%
+    confident-wrong**.
+- **Prompt versioning:**
+  - `FINEXTRACT_PROMPT_VERSION` selects the wording: v1 is the default, v2 has cash excluding
+    restricted cash.
+  - Every run and row stores `prompt_version` and `prompt_hash`, and `--resume` refuses a mismatch.
+  - Rows from before hashes existed count as v1 only if their run started before
+    2026-10-31 18:21 +05:30.
+  - The v1 hash is `5959365c4c18`.
+- **Label QA:** 15 labels (10 dev, 5 test) checked against the filing text, 0 mismatches; marked
+  `verified=yes` in `data/labels.csv`.
+- **Test run:** `test5_gptoss_v1` has **33 of 50 fields** done (JNJ, WMT, HD complete; MCD 3/10;
+  ORCL 0/10). Groq's daily token limit stopped it cleanly at 19:15. The retry-after of 997 s suggests the
+  quota refills gradually at about 8k tokens/hour. The remaining 17 fields need ~42k tokens, so run it
+  any time after ~5 hours, for example tomorrow.
+- **Repo:** https://github.com/rmr2024/finextract (MIT; author is the noreply address). The test5
+  predictions file and `logs/` are gitignored.
 
-## Tomorrow
+## Tomorrow: the one command
 
-1. Continue the test run with the same command plus `--resume`. It skips finished fields. The prompt
-   now has the new cash wording, so the rows from tomorrow differ from today's in that one field.
-   Note this in the results, or re-run cash for all 5 test filings to keep the run consistent.
-   ```powershell
-   # GROQ_API_KEY loaded from .env into the shell (never printed); then:
-   $env:OPENAI_API_KEY = $env:GROQ_API_KEY; $env:OPENAI_BASE_URL = "https://api.groq.com/openai/v1"
-   $env:FINEXTRACT_MIN_INTERVAL = "25"; $env:FINEXTRACT_REASONING_EFFORT = "low"
-   finextract extract --provider openai --model openai/gpt-oss-120b --tickers JNJ WMT HD MCD ORCL --workers 1 --k 4 --resume --run test5_gptoss_v1 *>> logs\groq_test5.log
-   ```
-2. Once it's complete, apply the frozen Stage 2 to the test run, with no tuning on test:
-   ```powershell
-   finextract evaluate --run test5_gptoss_v1
-   finextract verify --run test5_gptoss_v1
-   finextract evaluate --run test5_gptoss_v1_verified
-   ```
-   Compare aggregates only against `test_heuristic_v2`, filtered to the same 5 tickers.
-3. Optional: re-run dev with the new cash wording (`dev_gptoss_v2`, ~125k tokens, one day of quota)
-   to measure whether it fixes CAT cash without breaking other filings.
+Run this in a new PowerShell window in the project folder. It loads the Groq key from .env without
+printing it and resumes test5 with prompt v1.
 
-## Stage 2 remaining errors (dev)
+```powershell
+$k = (Get-Content .env | Where-Object { $_ -match '^\s*GROQ_API_KEY\s*=' } | Select-Object -First 1) -replace '^\s*GROQ_API_KEY\s*=\s*','' ; $env:OPENAI_API_KEY = $k.Trim().Trim('"'); $env:OPENAI_BASE_URL = "https://api.groq.com/openai/v1"; $env:FINEXTRACT_MIN_INTERVAL = "25"; $env:FINEXTRACT_REASONING_EFFORT = "low"; $env:FINEXTRACT_PROMPT_VERSION = "v1"; .\.venv\Scripts\Activate.ps1; finextract extract --provider openai --model openai/gpt-oss-120b --tickers JNJ WMT HD MCD ORCL --workers 1 --k 4 --resume --run test5_gptoss_v1 *>> logs\groq_test5.log
+```
 
-- **2 missing (MSFT total liabilities, NKE total assets):** retrieval didn't return the balance-sheet
-  chunk. Next fix: retrieval (raise k, or boost balance-sheet and cash-flow headings).
-- **CAT cash:** the wrong line item, "... and restricted cash". Snapping can't fix this. The prompt
-  change above, or a label-based concept check, is the fix.
+## Then (only once all 50 fields are done)
 
-## Ollama timings (kept for reference; `--limit 1`, AAPL, `--k 4`, CPU only)
+1. `finextract evaluate --run test5_gptoss_v1`
+2. `finextract verify --run test5_gptoss_v1`, using the frozen rules with no changes for test, then
+   `finextract evaluate --run test5_gptoss_v1_verified`.
+3. Compare aggregates on the same 5 tickers: heuristic v2 (`test_heuristic_v2`, filtered to JNJ WMT HD
+   MCD ORCL) vs gpt-oss v1 vs gpt-oss v1 + verify. Report exact, tolerant, coverage, ungrounded and
+   confident-wrong. Explain any dev vs test gap. Don't inspect individual test errors.
+4. Commit the test5 results once complete: remove the `data/predictions/test5_*` line from
+   .gitignore, or add the files with `git add -f`.
+
+## Later
+
+- `dev_gptoss_v2` (prompt v2) to check whether the cash wording fixes CAT cash without side effects
+  (~125k tokens, one day of quota).
+- Retrieval: the 2 dev misses (MSFT total liabilities, NKE total assets) never reach the model. Raise k,
+  or boost balance-sheet and cash-flow headings.
+- Label QA: check more labels to tighten the bound (0/15 gives a one-sided 95% upper bound of ~18%).
+
+## Ollama timings (reference; `--limit 1`, AAPL, `--k 4`, CPU only)
 
 | Model | sec/field | JSON parse |
 |---|---|---|
