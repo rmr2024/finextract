@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re
+import threading
 import time
 
 import requests
@@ -153,12 +154,45 @@ class OpenAICompatProvider:
         return out
 
 
+class DailyLimitReached(RuntimeError):
+    """The provider's daily quota is used up. Stop the run; `--resume` continues later."""
+
+
+_throttle_lock = threading.Lock()
+_last_request = [0.0]
+
+
+def _throttle():
+    """Keep at least FINEXTRACT_MIN_INTERVAL seconds between requests (e.g. ~25 for Groq's free tier)."""
+    gap = float(os.environ.get("FINEXTRACT_MIN_INTERVAL", 0) or 0)
+    with _throttle_lock:
+        wait = _last_request[0] + gap - time.monotonic()
+        if wait > 0:
+            time.sleep(wait)
+        _last_request[0] = time.monotonic()
+
+
+def _retry_after(r, default):
+    try:
+        return float(r.headers.get("retry-after"))
+    except (TypeError, ValueError):
+        return default
+
+
 def _post_with_retry(url, headers, body, retries=5):
+    max_wait = float(os.environ.get("FINEXTRACT_MAX_WAIT", 600))
     for attempt in range(retries):
+        _throttle()
         r = requests.post(url, headers=headers, json=body, timeout=float(os.environ.get("FINEXTRACT_TIMEOUT", 600)))
         if r.status_code == 200:
             return r.json()
-        if r.status_code in (429, 500, 502, 503, 529):
+        if r.status_code == 429:
+            wait = _retry_after(r, min(30, 2 ** attempt))
+            if "per day" in r.text.lower() or wait > max_wait:
+                raise DailyLimitReached(f"429 daily limit (retry-after {wait:.0f}s): {r.text[:200]}")
+            time.sleep(wait)
+            continue
+        if r.status_code in (500, 502, 503, 529):
             time.sleep(min(30, 2 ** attempt))
             continue
         raise RuntimeError(f"{r.status_code}: {r.text[:300]}")

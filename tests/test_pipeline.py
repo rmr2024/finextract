@@ -6,7 +6,7 @@ import pytest
 
 from finextract.config import FIELDS_BY_NAME
 from finextract.evaluate import classify
-from finextract.extract import extract_filing, grounding
+from finextract.extract import extract_filing, grounding, run_extraction
 from finextract.labels import label_filing
 from finextract.llm import HeuristicProvider, OpenAICompatProvider, parse_json_response
 from finextract.numbers import apply_scale, detect_scale, normalize_ws, parse_number
@@ -172,8 +172,9 @@ def test_demo_all_correct(tmp_path):
 
 
 class _FakeResp:
-    def __init__(self, status, payload=None, text=""):
+    def __init__(self, status, payload=None, text="", headers=None):
         self.status_code, self._payload, self.text = status, payload, text
+        self.headers = headers or {}
 
     def json(self):
         return self._payload
@@ -237,3 +238,64 @@ def test_request_timeout_configurable(monkeypatch):
     monkeypatch.setenv("FINEXTRACT_TIMEOUT", "30")
     _post_with_retry("http://x", {}, {})
     assert seen == [600.0, 30.0]
+
+
+def test_min_interval_and_retry_after(monkeypatch):
+    import finextract.llm as llm
+    sleeps, clock = [], [1000.0]
+    monkeypatch.setattr(llm.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(llm.time, "sleep", lambda s: (sleeps.append(round(s, 1)), clock.__setitem__(0, clock[0] + s)))
+    monkeypatch.setattr(llm, "_last_request", [0.0])
+    monkeypatch.setenv("FINEXTRACT_MIN_INTERVAL", "25")
+    resps = [_FakeResp(429, text="Rate limit reached on tokens per minute (TPM)", headers={"retry-after": "7"}),
+             _FakeResp(200, {"ok": 1}), _FakeResp(200, {"ok": 2})]
+    monkeypatch.setattr(llm.requests, "post", lambda *a, **k: resps.pop(0))
+    assert llm._post_with_retry("http://x", {}, {}) == {"ok": 1}
+    assert llm._post_with_retry("http://x", {}, {}) == {"ok": 2}
+    # first call: no wait; 429 -> Retry-After 7s; retry waits the rest of the 25s gap; next call waits 25s
+    assert sleeps == [7, 18, 25]
+
+
+@pytest.mark.parametrize("text,retry_after", [
+    ("Rate limit reached on tokens per day (TPD): Limit 200000", "60"),
+    ("Rate limit reached", "3600"),  # longer than FINEXTRACT_MAX_WAIT (600 by default)
+])
+def test_daily_limit_raises(monkeypatch, text, retry_after):
+    import finextract.llm as llm
+    monkeypatch.delenv("FINEXTRACT_MIN_INTERVAL", raising=False)
+    monkeypatch.delenv("FINEXTRACT_MAX_WAIT", raising=False)
+    monkeypatch.setattr(llm.time, "sleep", lambda s: pytest.fail("must not sleep on a daily limit"))
+    monkeypatch.setattr(llm.requests, "post", lambda *a, **k: _FakeResp(429, text=text, headers={"retry-after": retry_after}))
+    with pytest.raises(llm.DailyLimitReached):
+        llm._post_with_retry("http://x", {}, {})
+
+
+class QuotaProvider:
+    """Answers `budget` fields, then hits the daily limit."""
+    name = "quota"
+
+    def __init__(self, budget):
+        self.budget, self.calls = budget, []
+
+    def extract(self, field, company, period, chunks):
+        from finextract.llm import DailyLimitReached
+        if len(self.calls) >= self.budget:
+            raise DailyLimitReached("429 tokens per day")
+        self.calls.append(field.name)
+        return HeuristicProvider().extract(field, company, period, chunks)
+
+
+def test_daily_limit_stops_and_resume_finishes(tmp_path):
+    from finextract.config import FIELDS
+    from finextract.evaluate import load_predictions
+    rec = {"id": "EXWD", "ticker": "EXWD", "path": str(SAMPLE / "sample_10k.html"), "report_date": "2026-06-30"}
+    first = QuotaProvider(budget=4)
+    with pytest.raises(SystemExit, match="--resume"):
+        run_extraction([rec], first, "r", workers=1, data_dir=str(tmp_path))
+    meta, preds = load_predictions(tmp_path / "predictions" / "r.jsonl")
+    assert meta["run"] == "r" and len(preds) == 4
+    second = QuotaProvider(budget=100)
+    run_extraction([rec], second, "r", workers=1, data_dir=str(tmp_path), resume=True)
+    assert second.calls == [f.name for f in FIELDS][4:]  # only the remaining fields
+    meta, preds = load_predictions(tmp_path / "predictions" / "r.jsonl")
+    assert len(preds) == len(FIELDS) and meta["run"] == "r"
