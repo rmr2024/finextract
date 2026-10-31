@@ -1,0 +1,13 @@
+__pycache__/
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.env
+
+# Downloaded filings and runs are large and reproducible; keep labels.csv tracked if you hand-verify it
+data/raw/
+data/cache/
+data/text/
+data/demo/
+build/
