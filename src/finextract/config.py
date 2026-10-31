@@ -59,6 +59,12 @@ FIELDS = [
 
 FIELDS_BY_NAME = {f.name: f for f in FIELDS}
 
+# Dev set: tune against these. Test set: held out. Never inspect test-set errors while tuning;
+# only compare its aggregate metrics before/after a change.
+DEV_TICKERS = ["AAPL", "MSFT", "KO", "NKE", "CAT"]
+TEST_TICKERS = ["JNJ", "PFE", "WMT", "COST", "HD", "PEP", "PG", "MCD",
+                "DIS", "NFLX", "INTC", "CSCO", "ORCL", "IBM", "UPS"]
+
 # A default, sector-diverse set of large US filers. Edit freely.
 DEFAULT_TICKERS = [
     "AAPL", "MSFT", "AMZN", "GOOGL", "META", "NVDA", "TSLA", "JNJ", "PFE", "MRK",

@@ -92,11 +92,14 @@ results, spot-check about 10% of `data/labels.csv` against the filings:
 
 ## Findings so far
 
-- **Scale propagation is a real failure mode.** In the synthetic sample, the cash-flow
-  table's "(In millions)" header lands in a different chunk from the table rows, so the
-  extractor returns 2,903 instead of 2,903,000,000. The evaluator classifies it as a
-  `scale_error`. LLM extractors see the same chunk boundaries, so measure how often this
-  happens on real filings.
+- **Scale propagation was the largest single fixable error.** The "(In millions)" header often
+  lands in a different chunk from its table rows, so the extractor returned 442,387 instead of
+  442,387,000,000. `chunk_text` now carries the most recent scale hint forward as a
+  `[amounts in <scale>]` line. This removed all scale errors (dev 3 to 0, test 14 to 0) and
+  broke no previously correct item. LLM extractors read the same chunks, so they benefit too.
+- **The heuristic's 0% ungrounded is by design, not a finding.** It only returns a number copied
+  from a real line of the filing, so its quote is always found. Real hallucination rates
+  come from the LLM runs.
 
 ## Baseline results
 
@@ -111,13 +114,16 @@ AAPL, MSFT, KO, NKE, CAT (10 fields each, 44 with XBRL labels; BM25 top-6 chunks
 | Ungrounded answers | 0.0% |
 | Confident-wrong answers | 20.6% (7/34) |
 
+The 0% ungrounded is structural (the heuristic copies real lines). The baseline's real
+problems are wrong and missing answers.
+
 Root causes of the 17 non-correct items (each checked against `data/text`):
 
 | Cause | Count | Items |
 |---|---|---|
 | Alias gap: the filing uses a line-item name the heuristic doesn't know | 8 | KO revenue ("Net operating revenues"), KO equity ("Equity attributable to shareowners"), NKE cash ("Cash and equivalents"), NKE + MSFT + CAT operating cash flow, CAT operating income ("Operating profit"), CAT diluted EPS |
 | Wrong line: prefix/first-match takes the current portion, a segment, or a sub-line | 4 | AAPL + CAT long-term debt (current portion), CAT revenue ("Revenues of Financial Products"), KO operating income (first segment column) |
-| Scale lost: the "(In millions)" header sits in a different chunk from the row | 3 | MSFT equity, KO net income, CAT cash |
+| Scale lost: the "(In millions)" header sits in a different chunk from the row (fixed in v2) | 3 | MSFT equity, KO net income, CAT cash |
 | Retrieval miss: the correct line exists but isn't in the top-6 chunks | 2 | MSFT total liabilities, NKE total assets |
 
 Examples:
@@ -128,6 +134,21 @@ Examples:
 - **Wrong line (CAT long-term debt):** the alias `long-term debt` prefix-matches
   `Long-term debt due within one year | 7,120`, which comes before the correct
   `Long-term debt due after one year | 30,696`.
+
+### Dev / test results (heuristic)
+
+Dev = AAPL MSFT KO NKE CAT (used for tuning). Test = JNJ PFE WMT COST HD PEP PG MCD DIS NFLX INTC
+CSCO ORCL IBM UPS (held out: aggregate metrics only, errors never inspected while tuning).
+Sets are in `config.DEV_TICKERS` / `config.TEST_TICKERS`. v1 = baseline, v2 = scale propagation.
+
+| Set | Run | Labeled | Accuracy | Coverage | Confident-wrong | Scale errors |
+|---|---|---|---|---|---|---|
+| Dev | v1 `baseline_heuristic` | 44 | 61.4% | 77.3% | 20.6% | 3 |
+| Dev | v2 `dev_heuristic_v2` | 44 | 68.2% | 77.3% | 11.8% | 0 |
+| Test | v1 `test_heuristic_v1` | 137 | 46.0% | 75.9% | 39.4% | 14 |
+| Test | v2 `test_heuristic_v2` | 137 | 55.5% | 75.9% | 26.9% | 0 |
+
+Ungrounded is 0.0% in every heuristic run, by construction.
 
 ## Roadmap
 

@@ -1,3 +1,4 @@
+import csv
 import json
 from pathlib import Path
 
@@ -60,6 +61,8 @@ def test_chunks_never_split_lines(text):
     lines = set(text.splitlines())
     for c in chunks:
         for line in c.splitlines():
+            if line.startswith("[amounts in "):  # synthetic scale tag, see chunk_text
+                continue
             assert line in lines
 
 
@@ -142,3 +145,27 @@ def test_cache_unicode_roundtrip_and_empty_cache(tmp_path):
     assert load_filing_text(html, cache_dir) == first  # served from cache
     (cache_dir / "f.txt").write_text("", encoding="utf-8")  # simulate a truncated cache
     assert load_filing_text(html, cache_dir) == first
+
+
+def test_split_table_keeps_scale():
+    text = "\n".join(["(In millions, except per share amounts)", "Revenue | 1,000 | 900"]
+                     + [f"Line item {i} | {i},000 | {i},100" for i in range(60)]
+                     + ["Net cash provided by operating activities | 2,903 | 2,500"])
+    chunks = chunk_text(text, max_chars=300)
+    assert len(chunks) > 2
+    last = chunks[-1]
+    assert "(In millions" not in last and last.startswith("[amounts in millions]")
+    assert detect_scale(last) == "millions"
+    assert all(detect_scale(c) == "millions" for c in chunks)
+
+
+def test_no_scale_tag_without_hint():
+    chunks = chunk_text("\n".join(f"Row {i} | {i}" for i in range(100)), max_chars=200)
+    assert not any("[amounts in" in c for c in chunks)
+
+
+def test_demo_all_correct(tmp_path):
+    from finextract.cli import run_demo
+    run_demo(str(tmp_path))
+    rows = list(csv.DictReader(open(tmp_path / "demo" / "reports" / "demo_items.csv", encoding="utf-8")))
+    assert rows and all(r["class"] == "correct" for r in rows if r["label"])

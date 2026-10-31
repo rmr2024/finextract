@@ -6,6 +6,8 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
 
+from .numbers import detect_scale
+
 warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
 try:
@@ -68,18 +70,32 @@ def _merge_paren_cells(cells):
 
 
 def chunk_text(text, max_chars=1800, overlap_lines=3):
-    """Line-based chunks so table rows are never cut in half."""
+    """Line-based chunks so table rows are never cut in half.
+
+    A chunk without its own "(In millions)"-style hint inherits the most recent one seen,
+    as a "[amounts in <scale>]" first line, so table rows split from their header keep their scale.
+    """
     lines = text.splitlines()
-    chunks, cur, size = [], [], 0
+    chunks, cur, size, scale = [], [], 0, None
+
+    def emit(cur):
+        body = "\n".join(cur)
+        if scale and detect_scale(body) == "units":
+            body = f"[amounts in {scale}]\n{body}"
+        chunks.append(body)
+
     for line in lines:
         if size + len(line) > max_chars and cur:
-            chunks.append("\n".join(cur))
+            emit(cur)
             cur = cur[-overlap_lines:] if overlap_lines else []
             size = sum(len(x) for x in cur)
         cur.append(line)
         size += len(line) + 1
+        hint = detect_scale(line)
+        if hint != "units":
+            scale = hint
     if cur:
-        chunks.append("\n".join(cur))
+        emit(cur)
     return chunks
 
 
