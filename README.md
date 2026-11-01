@@ -1,357 +1,187 @@
 # finextract
 
-**How often do LLMs invent numbers when reading SEC filings — and how do you stop it?**
+A benchmark and pipeline for extracting financial figures from SEC 10-K filings with LLMs, and for
+measuring exactly how the extraction fails.
 
-`finextract` is a benchmark and pipeline for extracting key financial figures from 10-K
-filings. It measures not just *accuracy* but *how* extraction fails: wrong scale, wrong
-sign, last year's number, or a figure with no support in the source document.
+**Key finding.** When gpt-oss-120b gets a figure wrong, it usually quotes a real line from the filing
+and then *miscopies the number*: one digit changed, or the decimals dropped. That covers 11 of its 15
+wrong answers across dev and test. Of 90 answers, only 1 quote matched no filing line: a figure the
+model computed from two real lines, which verify rejected. Snap-to-source verification is deterministic, offline and makes no extra LLM call: it re-reads
+the number from the real filing line. That fixes these copying errors, taking held-out exact accuracy
+from 75.0% to 84.1% with 0 correct answers broken.
 
-Ground truth comes from each company's own XBRL tags, pulled from SEC EDGAR, so the
-benchmark scales to hundreds of filings without hand-labeling every value.
+## Results
 
-> Status: **Stage 1 — baseline.** The pipeline runs end to end and is measured. The
-> verification layer (Stage 2) comes next and is compared against these numbers.
+Exact match after scale against XBRL labels. n = 44 labeled fields per set, so one field is about
+2.3 points and the 95% interval is roughly ±11 points.
 
----
+| Extractor | Dev exact | Dev coverage | Dev confident-wrong | **Test exact** | Test coverage | Test confident-wrong |
+|---|---|---|---|---|---|---|
+| Heuristic (table-row regex) | 68.2% | 77.3% | 11.8% | 59.1% | 84.1% | 29.7% |
+| gpt-oss-120b | 81.8% | 95.5% | 14.3% | 75.0% | 95.5% | 21.4% |
+| gpt-oss-120b + verify | 93.2% | 95.5% | 2.4% | **84.1%** | 95.5% | 11.9% |
 
-## Pipeline
+- **Dev** is AAPL MSFT KO NKE CAT, used for all tuning. **Test** is JNJ WMT HD MCD ORCL, held out
+  until the method was frozen.
+- *Confident-wrong* is the share of answers given that are not an exact match.
+- *Ungrounded* (the answer's quote isn't in the filing, or doesn't contain the number) was 14.3% for
+  raw gpt-oss on both sets, and 0% after verify.
+- Test errors were inspected only after the test set was final.
 
+**What's left on test after verify:**
+- 5 grounded-but-wrong answers:
+  - 3 wrong line items: consolidated versus attributable to the parent (ORCL equity, WMT net income,
+    WMT equity);
+  - 1 verify tie-break that picked the prior-year column (WMT EPS, where the model dropped its
+    decimals);
+  - 1 label whose XBRL tag fallback doesn't match the field definition (HD long-term debt).
+- 2 missing answers.
+
+The full breakdown is in [docs/DEVLOG.md](docs/DEVLOG.md), and a plain-language write-up is in
+[docs/WRITEUP.md](docs/WRITEUP.md).
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Ingest
+        E[SEC EDGAR] --> H[10-K HTML]
+        E --> X[XBRL company facts]
+    end
+    H --> T["Text + table rows<br/>(hidden iXBRL removed,<br/>scale hints carried forward)"]
+    T --> C[Line-safe chunks]
+    C --> R[BM25 retrieval per field]
+    R --> M{"Extractor<br/>heuristic / LLM"}
+    M --> P["value + scale + quote"]
+    P --> V["verify: snap to source<br/>(offline, no LLM)"]
+    X --> L[labels.csv]
+    P --> EV[Evaluator]
+    V --> EV
+    L --> EV
+    EV --> REP[Reports]
+    EV --> DB[(SQLite)]
+    DB --> API[FastAPI] --> UI[Dashboard]
 ```
-SEC EDGAR ──► 10-K HTML ──► clean text ──► chunks ──► BM25 retrieval ──► extractor ──► JSON + quote
-     │                     (strip hidden iXBRL,        (per field)       (heuristic /
-     │                      tables → rows)                                LLM)
-     └──► XBRL company facts ──► labels.csv ──────────────────────────► evaluator ──► report
-```
 
-Every prediction stores the exact line the extractor says the number came from. The
-evaluator checks that line against the filing. If the quote isn't in the document, or
-doesn't contain the number, the answer is **ungrounded**: the measurable form of a
-hallucination.
+1. **Retrieve.** Filings are flattened to text, with each table row on one line. A table's
+   "(In millions)" header is carried into every chunk that needs it. BM25 picks the top-k chunks for
+   each field.
+2. **Extract.** The extractor returns `{value, scale, quote}`, where the quote must be the exact
+   filing line the number came from. Prompts are versioned and hashed, and `--resume` refuses to mix
+   them.
+3. **Ground and verify.** The evaluator checks the quote against the filing. `verify` fuzzy-matches
+   the quote to the real line (ratio of at least 0.85 and the same row label), then takes the column
+   whose digits are closest to the model's number. If it can't find a match, it returns no answer
+   rather than a guess.
+4. **Score.** Every answer gets an error class: `correct`, `near_miss`, `scale_error`, `sign_error`,
+   `wrong_period`, `wrong_other` or `missing`.
 
-## Fields
+## Limitations
 
-Revenue, operating income, net income, diluted EPS, total assets, total liabilities,
-stockholders' equity, cash & equivalents, long-term debt, operating cash flow.
-(Edit `src/finextract/config.py` to add more.)
+- **This benchmarks a method, not a product.** XBRL already tags these 10 fields, which is exactly
+  why XBRL can serve as ground truth. The method is aimed at documents *without* tags.
+- **The sample is small.** 5 + 5 filings and 44 labeled fields per set, with roughly ±11 points of
+  noise. The dev rules were tuned on dev, so dev's numbers are optimistic; test's 84.1% is the honest
+  figure.
+- **0% ungrounded after verify holds by construction.** Every verified value is read from a real
+  filing line. It shows the numbers are traceable, not that they are correct.
+- **Confident-wrong is the remaining risk.** Verify cannot fix a real but wrong line, such as
+  consolidated net income where the attributable figure was wanted.
+- **Labels are only partly hand-checked.** 15 labels were checked against the filings, with 0
+  mismatches, and one more label problem turned up during error analysis (HD). XBRL is the filer's own
+  tagging, not an audit.
+- **One model was tested at length.** gpt-oss-120b ran via a free hosted tier. Local Ollama models
+  were too slow on CPU for the full benchmark.
 
 ## Quick start
 
 ```bash
 pip install -e ".[dev]"
-pytest                       # 25 tests, runs offline
-finextract demo              # full pipeline on a bundled synthetic filing, no keys needed
+pytest                      # offline test suite
+finextract demo             # whole pipeline on a bundled synthetic filing, no keys or network
 ```
 
-## Running the real benchmark
+**Benchmark** on real filings:
 
 ```bash
-# 1. SEC requires a contact in the User-Agent
-export SEC_USER_AGENT="Your Name your@email.com"
+export SEC_USER_AGENT="Your Name you@example.com"   # SEC requires a contact; requests are rate-limited
+finextract download --tickers AAPL MSFT KO NKE CAT
+finextract label                                     # data/labels.csv from XBRL
+finextract extract --provider heuristic --run dev_heuristic
+finextract evaluate --run dev_heuristic              # reports/dev_heuristic.md + _items.csv
 
-# 2. Download the latest 10-K for 30 large companies (edit the list in config.py)
-finextract download                         # or: --tickers AAPL MSFT JPM GS --per-company 2
-
-# 3. Build ground-truth labels from XBRL
-finextract label                            # writes data/labels.csv
-
-# 4. Run extractors
-finextract extract --provider heuristic --run baseline_heuristic
-
-export ANTHROPIC_API_KEY=...
-finextract extract --provider anthropic --model claude-haiku-5-5 --run baseline_haiku --limit 3   # cheap test first
-
-# Free, local option via Ollama (any OpenAI-compatible server works)
-export OPENAI_BASE_URL=http://localhost:11434/v1
-finextract extract --provider openai --model llama3.1 --run baseline_llama
-
-# 5. Score
-finextract evaluate --run baseline_haiku    # writes reports/baseline_haiku.md and _items.csv
+# any OpenAI-compatible endpoint (local Ollama, Groq, ...); or --provider anthropic
+export OPENAI_BASE_URL=https://api.groq.com/openai/v1 OPENAI_API_KEY=...
+export FINEXTRACT_MIN_INTERVAL=25 FINEXTRACT_REASONING_EFFORT=low
+finextract extract --provider openai --model openai/gpt-oss-120b --k 4 --workers 1 --resume --run dev_gptoss
+finextract verify --run dev_gptoss                   # writes dev_gptoss_verified, offline
+finextract evaluate --run dev_gptoss_verified
 ```
 
-## Metrics
+On Windows PowerShell, use `$env:NAME="value"` instead of `export`.
 
-| Metric | Meaning |
-|---|---|
-| Accuracy | exact matches (after applying scale) ÷ labeled fields. The headline metric |
-| Accuracy (within 0.5%) | `accuracy_tolerant`: the old headline. It counts one-digit slips like 20,835 vs 20,935 as right |
-| Coverage | share of fields where the extractor gave an answer |
-| Ungrounded | answers whose quote isn't in the filing, or doesn't contain the number |
-| Confident-wrong | answered but not an exact match. Worse than "not found" in a financial workflow |
+Useful settings:
+- `--resume` continues a run after a crash or a rate-limit stop.
+- `FINEXTRACT_PROMPT_VERSION` selects the prompt wording (v1 or v2).
+- `FINEXTRACT_TIMEOUT` sets the request timeout.
+- `FINEXTRACT_MAX_WAIT` caps the wait after a 429 before the run stops.
 
-Every error is classified as `near_miss` (within 0.5% but not exact), `scale_error`, `sign_error`,
-`wrong_period` (returned the prior year's comparative figure), or `wrong_other`. That breakdown tells you *what to fix*.
+**Service and dashboard:**
 
-## Labels: what to verify by hand
-
-XBRL values are the filer's own tags, not an independent audit. Tag choice varies (e.g.
-which "revenue" tag a company uses), and some values are restated later. Before trusting
-results, spot-check about 10% of `data/labels.csv` against the filings:
-
-- Correct → set `verified` to `yes`
-- Wrong → set `verified` to `fixed:<correct value>` (the evaluator uses your value)
-- Note anything odd in `notes`
-
-**Label QA (2026-10-31): 0 of 15 mismatched.** The sample was 10 dev labels (one per field) and 5 test
-labels (JNJ revenue, WMT net income, HD total assets, MCD cash, ORCL operating cash flow). Each was
-compared with the filing text without looking at any predictions. All 15 match the primary-statement
-row for both the current and prior year, and are marked `verified=yes` with the matching line in
-`notes`. At n=15 that only loosely bounds the label error rate (one-sided 95% upper bound ~18%).
-It is consistent with the errors above coming from the extractors, but more labels would need checking
-to rule out label noise.
-
-## Findings so far
-
-- **Scale propagation was the largest single fixable error.** The "(In millions)" header often
-  lands in a different chunk from its table rows, so the extractor returned 442,387 instead of
-  442,387,000,000. `chunk_text` now carries the most recent scale hint forward as a
-  `[amounts in <scale>]` line. This removed all scale errors (dev 3 to 0, test 14 to 0) and
-  broke no previously correct item. LLM extractors read the same chunks, so they benefit too.
-- **The heuristic's 0% ungrounded is by design, not a finding.** It only returns a number copied
-  from a real line of the filing, so its quote is always found. Real hallucination rates
-  come from the LLM runs.
-- **The LLM's ungrounded answers are copy errors, not invented lines.** gpt-oss-120b quoted a
-  real line (or a near-copy of one) every time, but it changed one digit when writing out the
-  value (20,935 to 20,835; 67,589 to 67,189) or dropped decimals (18.81 to 18). The grounding
-  check flagged all 6, including every confident-wrong answer.
-- **The evaluator's 0.5% tolerance hid some wrong values.** Two of those digit slips and one
-  wrong-concept answer (cash *including restricted cash*, 9,986 vs 9,980) were within 0.5%, so
-  they counted as "correct". Accuracy is now exact match after scale (`near_miss` is its own
-  class), and the tolerant figure is kept as `accuracy_tolerant`.
-- **Snapping each answer to its source line fixes the copy errors without another LLM call.**
-  Re-reading the number from the real filing line raised gpt-oss dev exact accuracy from 81.8% to
-  93.2% and cut ungrounded answers from 14.3% to 0%, without breaking any correct value.
-
-## Baseline results
-
-`finextract extract --provider heuristic --run baseline_heuristic` on the latest 10-K of
-AAPL, MSFT, KO, NKE, CAT (10 fields each, 44 with XBRL labels; BM25 top-6 chunks).
-
-| Metric | Value |
-|---|---|
-| Labeled fields | 44 |
-| Accuracy | 61.4% (27/44) |
-| Coverage (answered) | 77.3% (34/44) |
-| Ungrounded answers | 0.0% |
-| Confident-wrong answers | 20.6% (7/34) |
-
-The 0% ungrounded is structural (the heuristic copies real lines). The baseline's real
-problems are wrong and missing answers.
-
-Root causes of the 17 non-correct items (each checked against `data/text`):
-
-| Cause | Count | Items |
-|---|---|---|
-| Alias gap: the filing uses a line-item name the heuristic doesn't know | 8 | KO revenue ("Net operating revenues"), KO equity ("Equity attributable to shareowners"), NKE cash ("Cash and equivalents"), NKE + MSFT + CAT operating cash flow, CAT operating income ("Operating profit"), CAT diluted EPS |
-| Wrong line: prefix/first-match takes the current portion, a segment, or a sub-line | 4 | AAPL + CAT long-term debt (current portion), CAT revenue ("Revenues of Financial Products"), KO operating income (first segment column) |
-| Scale lost: the "(In millions)" header sits in a different chunk from the row (fixed in v2) | 3 | MSFT equity, KO net income, CAT cash |
-| Retrieval miss: the correct line exists but isn't in the top-6 chunks | 2 | MSFT total liabilities, NKE total assets |
-
-Examples:
-
-- **Scale lost (MSFT equity):** the quote is `Total stockholders' equity | 442,387 | ...`, so the
-  extractor returns 442,387 instead of 442,387,000,000, because the chunk holding that row
-  has no "(In millions)" hint.
-- **Wrong line (CAT long-term debt):** the alias `long-term debt` prefix-matches
-  `Long-term debt due within one year | 7,120`, which comes before the correct
-  `Long-term debt due after one year | 30,696`.
-
-### Dev / test results (heuristic)
-
-Dev = AAPL MSFT KO NKE CAT (used for tuning). Test = JNJ PFE WMT COST HD PEP PG MCD DIS NFLX INTC
-CSCO ORCL IBM UPS (held out: aggregate metrics only, errors never inspected while tuning).
-Sets are in `config.DEV_TICKERS` / `config.TEST_TICKERS`. v1 = baseline, v2 = scale propagation.
-
-| Set | Run | Labeled | Accuracy | Coverage | Confident-wrong | Scale errors |
-|---|---|---|---|---|---|---|
-| Dev | v1 `baseline_heuristic` | 44 | 61.4% | 77.3% | 20.6% | 3 |
-| Dev | v2 `dev_heuristic_v2` | 44 | 68.2% | 77.3% | 11.8% | 0 |
-| Test | v1 `test_heuristic_v1` | 137 | 46.0% | 75.9% | 39.4% | 14 |
-| Test | v2 `test_heuristic_v2` | 137 | 54.7% | 75.9% | 27.9% | 0 |
-
-Accuracy is exact match. Within 0.5%, test v2 is 55.5%, which was the old headline; all other rows are
-the same either way. Ungrounded is 0.0% in every heuristic run, by construction.
-
-### LLM results (dev)
-
-`openai/gpt-oss-120b` on Groq's free tier (`--provider openai --workers 1 --k 4`, JSON mode,
-`reasoning_effort=low`, `FINEXTRACT_MIN_INTERVAL=25`). Run `dev_gptoss_v1`: 121,169 tokens in and
-6,122 out for 50 fields, with 100% JSON parse and 0 errors.
-
-| Dev (44 labeled) | Accuracy (exact) | Within 0.5% | Coverage | Ungrounded | Confident-wrong | s/field |
-|---|---|---|---|---|---|---|
-| Heuristic v2 | 68.2% | 68.2% | 77.3% | 0.0% (by design) | 11.8% | 0.0 |
-| gpt-oss-120b v1 | 81.8% | 88.6% | 95.5% | 14.3% (6/42) | 14.3% (6/42) | 24.0* |
-| gpt-oss-120b v1 + snap to source | **93.2%** | 95.5% | 95.5% | 0.0% | 2.4% (1/42) | 24.0* (+0.1 offline) |
-
-\* Set by the 25 s free-tier throttle, not by model speed.
-
-The 6 ungrounded answers (each one checked against `data/text`):
-
-| Item | Model value | Model quote | Real line | Cause |
-|---|---|---|---|---|
-| MSFT cash | 20,835 | `Cash and cash equivalents \| 20,935` | `Cash and cash equivalents \| 20,935 \| 30,242` | Right line, one digit changed in the value (`near_miss`) |
-| MSFT long-term debt | 31,167 | `Long-term debt \| 31,067 \| 40,152` | same | Right line, one digit changed (`near_miss`) |
-| NKE equity | 14,865 | `Total shareholders' equity \| 14,965 \| 13,213` | `... \| 14,865 \| 13,213` | Value right, digit changed in the *quote* (quote not found) |
-| CAT revenue | 67,189 | `Total sales and revenues \| 67,589 \| ...` | same | Right line, one digit changed (0.6% off, wrong) |
-| CAT diluted EPS | 18 | `Profit per common share - diluted 2 \| 18.81 \| ...` | same | Decimals dropped |
-| CAT total liabilities | 77,767 | `Total liabilities \| 77,267 \| 68,270` | same | Right line, one digit changed (wrong) |
-
-Other errors: 2 missing (MSFT total liabilities and NKE total assets, the same 2 rows retrieval
-missed for the heuristic), plus CAT cash, a grounded wrong-concept answer (`near_miss`).
-
-### Test set (gpt-oss, held out)
-
-The 5 held-out tickers are JNJ WMT HD MCD ORCL, with 44 labeled fields. Run `test5_gptoss_v1` used the
-same settings as dev and prompt v1, and finished 50/50 on 2026-11-01. The daily token limit stopped it
-twice; each time it was resumed with `--resume`. `verify` used the rules frozen on dev, unchanged.
-Only aggregates were looked at.
-
-| Run | Set | Exact | Within 0.5% | Coverage | Ungrounded | Confident-wrong |
-|---|---|---|---|---|---|---|
-| Heuristic v2 | dev | 68.2% | 68.2% | 77.3% | 0.0% | 11.8% |
-| gpt-oss v1 | dev | 81.8% | 88.6% | 95.5% | 14.3% | 14.3% |
-| gpt-oss v1 + verify | dev | 93.2% | 95.5% | 95.5% | 0.0% | 2.4% |
-| Heuristic v2 (same 5 tickers) | test | 59.1% | 59.1% | 84.1% | 0.0% | 29.7% |
-| gpt-oss v1 | test | 75.0% | 75.0% | 95.5% | 14.3% | 21.4% |
-| gpt-oss v1 + verify | **test** | **84.1%** | 84.1% | 95.5% | **0.0%** | 11.9% |
-
-**Dev vs test gap:**
-- **Test filings are harder for everyone.** The heuristic, which was never tuned on test, also drops
-  9.1 points (68.2% to 59.1%). So most of the LLM's raw drop (81.8% to 75.0%) is these filings, not
-  overfitting.
-- **The test errors are a different kind.** Dev's raw errors were mostly copy slips (3 near-misses and
-  3 wrong). Test has no near-misses and 9 wrong answers.
-- **Snapping generalizes, but only to copy errors.** On test it fixed 4 items and broke 0; on dev it
-  fixed 5 and broke 0. The 5 test answers still wrong (4 wrong, 1 prior-year column) are probably
-  wrong lines or concepts, which snapping cannot fix. The individual test errors have not been
-  inspected, so this is an inference.
-- **Dev is optimistic by design.** The two snap rules were tightened on dev errors, so dev's 93.2% is
-  partly fit to dev. 84.1% is the honest held-out number.
-- **The samples are small.** n=44, so one field is about 2.3 points, and a 95% interval on 84.1% is
-  roughly ±11 points. The differences above are directional, not precise.
-
-### Stage 2: snap to source (offline)
-
-`finextract verify --run X` writes `X_verified`. It is post-processing only, with no LLM calls (~4 s
-for 50 fields):
-
-1. Fuzzy-match the model's quote to the closest real line in `data/text`, using the difflib ratio
-   against the line cut to the quote's column count.
-2. Require a ratio of at least 0.85 and the same row label. Otherwise the answer is unverified and
-   its value is set to `None`.
-3. From that line, take the column whose digits differ least from the model's number (numeric
-   distance breaks ties), then apply the scale.
-4. Each row records `verified_line`, `match_ratio` and `value_changed`.
-
-Dev results for `dev_gptoss_v1`, 7 values changed:
-
-| Item | Before | After | Result |
-|---|---|---|---|
-| MSFT cash | 20,835 | 20,935 | near_miss -> correct |
-| MSFT long-term debt | 31,167 | 31,067 | near_miss -> correct |
-| CAT revenue | 67,189 | 67,589 | wrong -> correct |
-| CAT diluted EPS | 18 | 18.81 | wrong -> correct |
-| CAT total liabilities | 77,767 | 77,267 | wrong -> correct |
-| CAT net income | 8,822 | 8,882 | unlabeled (no XBRL label) |
-| CAT equity | 21,118 | 21,318 | unlabeled |
-
-Plus NKE operating income (unlabeled): its quote matched no line (ratio 0.74), so its value was set
-to None. No correct value was broken.
-
-Two rules were tightened after the first dev pass, which got 2 changes wrong:
-- MSFT cash snapped to a shorter, different "Cash and cash equivalents | 12,976" row. That is why
-  lines are now cut to the quote's column count before matching.
-- CAT revenue snapped to the numerically nearer 2023 column. That is why columns are now chosen
-  by digit distance.
-
-Still wrong after verification: 2 missing (retrieval) and CAT cash (wrong concept, restricted cash
-included). Snapping can only fix the number; it cannot fix the wrong line or a missing line.
-
-**Prompt versions:** field descriptions are part of the prompt, so they are versioned. Set them with
-`FINEXTRACT_PROMPT_VERSION`:
-- `v1`: the original wording, and the default.
-- `v2`: `cash` excludes restricted cash.
-
-Every run's metadata and every row store `prompt_version` and a `prompt_hash`, and `--resume` refuses
-to mix prompts. Rows written before hashes existed count as v1 only if the run started before
-2026-10-31 18:21 +05:30, when the v2 wording first existed. `dev_gptoss_v1` and `test5_gptoss_v1` are
-both v1 (hash `5959365c4c18`). v2 has not been run yet.
-
-## Roadmap
-
-- **Stage 2 — verification layer:** reject answers whose quote isn't in the source, check
-  accounting identities (assets = liabilities + equity), carry table scale headers into
-  every chunk, retry on failure. Report before/after.
-- **Stage 3 — service:** FastAPI, async batch jobs, result store, dashboard showing each
-  figure beside its source line, Docker.
-- **Stage 4 — depth:** 10-Qs and credit agreements, multi-model cost/accuracy comparison,
-  error analysis by sector and document length, publish the labeled dataset.
-
-## Running the service
-
-A small API and a one-page dashboard sit on top of a local SQLite store, `data/finextract.db`
-(gitignored).
-
-```powershell
-pip install -e ".[api]"                          # fastapi, uvicorn, httpx
-finextract import --run dev_gptoss_v1            # load predictions + labels into SQLite
-finextract import --run dev_gptoss_v1_verified
-finextract serve                                 # http://127.0.0.1:8000/  (this machine only)
+```bash
+pip install -e ".[api]"
+finextract import --run dev_gptoss_verified          # load a run + labels into data/finextract.db
+finextract serve                                     # http://127.0.0.1:8000/  (docs at /docs)
 ```
 
-Open http://127.0.0.1:8000/ and pick a run and a filing. Each field shows the extracted value, the
-label, a correct/wrong badge, and the filing line the value came from: the snapped line for verified
-runs, or the model's quote when it was found in the filing. The page follows the system light or
-dark mode. The API docs are at http://127.0.0.1:8000/docs.
+The dashboard lets you pick a run and a filing. Each field then shows the extracted value, the
+label, a correct/wrong badge, and the filing line the value came from.
 
-| Endpoint | What it does |
+| Endpoint | Purpose |
 |---|---|
-| `GET /runs` | Imported runs |
-| `GET /runs/{run}/summary` | Same metrics as `finextract evaluate`: exact, tolerant, coverage, ungrounded, confident-wrong |
-| `GET /runs/{run}/filings` | Filings in a run, with correct and wrong counts |
-| `GET /runs/{run}/filings/{id}` | Every field: value, label, error class, quote, verified source line |
-| `POST /extract` | `{"ticker", "run", "provider"}` starts a background job and returns `job_id` |
-| `GET /jobs/{id}` | `queued`, `running`, `done` or `failed`, with a message |
+| `GET /runs`, `GET /runs/{run}/summary` | Runs and their metrics |
+| `GET /runs/{run}/filings[/{id}]` | Per-filing fields: value, label, error class, quote, source line |
+| `POST /extract` + `GET /jobs/{id}` | Re-run one downloaded filing as a background job |
 
-`POST /extract` details:
-- It defaults to the free heuristic and only re-runs filings that are already downloaded. The service
-  never contacts SEC.
-- `anthropic` or `openai` are accepted only if their environment variables are already set in the
-  shell that started the server; otherwise you get a 400.
-- Jobs append to the named run (`--resume` semantics), so other filings in it are kept.
-- Run names are restricted to `[A-Za-z0-9_.-]`, because they become file names.
-
-`serve` binds 127.0.0.1 by default: the API has no authentication, and `POST /extract` can spend
-API quota.
-
-**Docker** (the image is not built in CI yet):
-
-```powershell
-docker build -t finextract .
-docker run --rm -p 127.0.0.1:8000:8000 -v "${PWD}/data:/app/data" finextract
-```
-
-Inside the container the server must bind 0.0.0.0. Publishing on `127.0.0.1:` keeps it local. No
-secrets are baked into the image (`.env` is in `.dockerignore`); pass `--env-file .env` only if you
-want LLM jobs.
+Service behaviour:
+- `POST /extract` uses the heuristic unless an LLM provider's environment variables are already set.
+- `serve` binds 127.0.0.1 by default, because the API has no authentication.
+- Docker: `docker build -t finextract .`, then
+  `docker run -p 127.0.0.1:8000:8000 -v "$PWD/data:/app/data" finextract`.
 
 ## Project layout
 
 ```
 src/finextract/
-  config.py     field definitions, XBRL tags, retrieval queries
-  edgar.py      SEC client (rate-limited, cached)
-  labels.py     ground truth from XBRL company facts
-  textproc.py   HTML → text, table flattening, chunking
-  retrieve.py   BM25 retriever (no dependencies)
-  llm.py        heuristic / Anthropic / OpenAI-compatible extractors
-  extract.py    pipeline + grounding evidence
-  evaluate.py   metrics, error classes, reports
-  verify.py     Stage 2 snap-to-source (offline post-processing)
-  store.py      SQLite store for runs, fields, jobs
-  api.py        FastAPI service (+ static/index.html dashboard)
-  sample/       synthetic 10-K + XBRL facts for tests and the demo
-tests/          offline test suite
+  edgar.py      SEC client (rate-limited, cached)        labels.py    XBRL ground truth
+  textproc.py   HTML -> text, tables, chunking           retrieve.py  BM25 (no dependencies)
+  llm.py        heuristic / Anthropic / OpenAI-compatible extractors, prompt versions
+  extract.py    pipeline, grounding, resume              verify.py    snap-to-source
+  evaluate.py   metrics + error classes                  store.py     SQLite store
+  api.py        FastAPI service + static/index.html dashboard
+tests/          offline tests (pipeline, verify, rate limits, resume, API)
+docs/           DEVLOG.md (stage-by-stage results), WRITEUP.md
 ```
 
-Data comes from SEC EDGAR, which is public. The bundled sample company is fictional.
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). In short: `pip install -e ".[dev,api]"`, keep `pytest`
+green, and don't run SEC downloads or LLM calls in tests.
+
+## Future work
+
+- **An open benchmark and leaderboard.** Publish the labeled set and a scoring harness so other
+  extractors can be compared on exact match, coverage and confident-wrong.
+- **Untagged documents.** Apply the method to earnings press releases and other filings without XBRL,
+  where it is actually needed.
+- **Concept checks.** Reject lines whose label doesn't fit the field definition, such as consolidated
+  versus attributable figures, which are the main errors left.
+- **Retrieval.** The 2 misses on each set never reach the extractor.
+
+The technical roadmap is in [ROADMAP.md](ROADMAP.md), and release history in
+[CHANGELOG.md](CHANGELOG.md).
+
+## License
+
+MIT, see [LICENSE](LICENSE). Filing data comes from SEC EDGAR, which is public. The bundled sample
+company is fictional.

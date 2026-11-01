@@ -1,7 +1,7 @@
-"""Baseline pipeline: retrieve -> extract -> record grounding evidence.
+"""Extraction pipeline: retrieve -> extract -> record grounding evidence.
 
-No verification or retries on purpose: this is the baseline you measure first.
-Stage 2 adds the fix and compares against these numbers.
+Deliberately no verification here, so raw extractor behaviour can be measured.
+Verification is a separate offline step (verify.py) applied to a finished run.
 """
 import json
 import os

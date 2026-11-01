@@ -4,7 +4,7 @@ Each 10-K tags its financial statement numbers in XBRL. The SEC "companyfacts"
 API returns every tagged value with the accession number of the filing that
 reported it, so we can look up exactly what *this* filing said.
 
-Caveat (worth knowing in interviews): XBRL is the filer's tagging, not an
+Caveat: XBRL is the filer's tagging, not an
 independent audit. Companies pick different tags for "revenue", and some
 values are restated later. That's why labels.csv has a `verified` column:
 spot-check a sample by hand against the filing and record what you find.
