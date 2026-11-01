@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>finextract results</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e3e2dc;
+    --ok-bg: #e3f3e6; --ok-fg: #1d6b32; --bad-bg: #fbe5e1; --bad-fg: #a3291a;
+    --warn-bg: #fdf1d6; --warn-fg: #8a5a00; --na-bg: #ecebe6; --na-fg: #5c5b56; --accent: #2f5fb3;
+    --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161615; --panel: #1f1f1d; --text: #ecebe6; --muted: #a09f99; --line: #33332f;
+      --ok-bg: #173a22; --ok-fg: #8fd6a2; --bad-bg: #44201b; --bad-fg: #f2a497;
+      --warn-bg: #3d2f12; --warn-fg: #f0c674; --na-bg: #2b2b28; --na-fg: #b3b2ab; --accent: #8fb0ee;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin-bottom: 16px; }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  select { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line);
+           border-radius: 6px; padding: 6px 8px; min-width: 240px; max-width: 100%; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .tile .k { font-size: 12px; color: var(--muted); }
+  .tile .v { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .meta { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+  .tablewrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; min-width: 760px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+  tr:last-child td { border-bottom: 0; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .src { font-family: var(--mono); font-size: 12.5px; word-break: break-word; }
+  .src.none { color: var(--muted); font-family: inherit; font-style: italic; }
+  .badge { display: inline-block; border-radius: 999px; padding: 1px 9px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .b-ok { background: var(--ok-bg); color: var(--ok-fg); }
+  .b-bad { background: var(--bad-bg); color: var(--bad-fg); }
+  .b-warn { background: var(--warn-bg); color: var(--warn-fg); }
+  .b-na { background: var(--na-bg); color: var(--na-fg); }
+  .note { font-size: 12px; color: var(--muted); }
+  .empty { color: var(--muted); padding: 24px; text-align: center; }
+  .err { color: var(--bad-fg); }
+</style>
+</head>
+<body>
+<main>
+  <h1>finextract</h1>
+  <p class="sub">Figures extracted from SEC 10-K filings, scored against XBRL labels.</p>
+
+  <div class="controls">
+    <label>Run <select id="run"></select></label>
+    <label>Filing <select id="filing"></select></label>
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+  <p class="meta" id="meta"></p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr>
+        <th>Field</th><th>Extracted</th><th>Label</th><th>Result</th><th>Source line</th>
+      </tr></thead>
+      <tbody id="rows"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const BADGES = {
+  correct: ["Correct", "b-ok"], near_miss: ["Near miss", "b-warn"], missing: ["Missing", "b-na"],
+  scale_error: ["Scale error", "b-bad"], sign_error: ["Sign error", "b-bad"],
+  wrong_period: ["Prior year", "b-bad"], wrong_other: ["Wrong", "b-bad"], unlabeled: ["No label", "b-na"],
+};
+
+function el(tag, attrs = {}, text) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function fmt(v, field) {
+  if (v === null || v === undefined) return "—";
+  if (field === "eps_diluted" || Math.abs(v) < 1e5) return v.toLocaleString(undefined, { maximumFractionDigits: 4 });
+  return (v / 1e6).toLocaleString(undefined, { maximumFractionDigits: 1 }) + "M";
+}
+const pct = (x) => (x === undefined || x === null) ? "—" : (100 * x).toFixed(1) + "%";
+
+async function getJSON(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`${r.status} ${(await r.json().catch(() => ({}))).detail || r.statusText}`);
+  return r.json();
+}
+
+function showMessage(text, isError) {
+  const tb = $("rows");
+  tb.replaceChildren();
+  const tr = el("tr");
+  tr.appendChild(el("td", { colspan: "5", class: "empty" + (isError ? " err" : "") }, text));
+  tb.appendChild(tr);
+}
+
+async function loadRuns() {
+  const runs = await getJSON("/runs");
+  const sel = $("run");
+  sel.replaceChildren();
+  if (!runs.length) {
+    showMessage("No runs imported yet. Run: finextract import --run <name>");
+    return;
+  }
+  for (const r of runs) sel.appendChild(el("option", { value: r.run }, `${r.run} (${r.filings} filings)`));
+  const saved = new URLSearchParams(location.hash.slice(1)).get("run");
+  if (saved && runs.some((r) => r.run === saved)) sel.value = saved;
+  await loadRun();
+}
+
+async function loadRun() {
+  const run = $("run").value;
+  const [s, filings] = await Promise.all([getJSON(`/runs/${encodeURIComponent(run)}/summary`),
+                                          getJSON(`/runs/${encodeURIComponent(run)}/filings`)]);
+  const tiles = $("tiles");
+  tiles.replaceChildren();
+  const items = [["Accuracy (exact)", pct(s.accuracy)], ["Within 0.5%", pct(s.accuracy_tolerant)],
+                 ["Coverage", pct(s.coverage)], ["Ungrounded", pct(s.ungrounded)],
+                 ["Confident-wrong", pct(s.confident_wrong)], ["Labeled fields", s.n ?? 0]];
+  for (const [k, v] of items) {
+    const t = el("div", { class: "tile" });
+    t.appendChild(el("div", { class: "k" }, k));
+    t.appendChild(el("div", { class: "v" }, String(v)));
+    tiles.appendChild(t);
+  }
+  const sel = $("filing");
+  sel.replaceChildren();
+  for (const f of filings) sel.appendChild(el("option", { value: f.filing_id },
+    `${f.filing_id.split("_")[0]} · ${f.correct} correct, ${f.wrong} wrong`));
+  const saved = new URLSearchParams(location.hash.slice(1)).get("filing");
+  if (saved && filings.some((f) => f.filing_id === saved)) sel.value = saved;
+  await loadFiling();
+}
+
+async function loadFiling() {
+  const run = $("run").value, fid = $("filing").value;
+  if (!fid) { showMessage("This run has no filings."); return; }
+  location.hash = new URLSearchParams({ run, filing: fid }).toString();
+  const d = await getJSON(`/runs/${encodeURIComponent(run)}/filings/${encodeURIComponent(fid)}`);
+  $("meta").textContent = `${fid} — ${d.fields.length} fields. Source line = the filing line the value was ` +
+    `re-read from (verified runs) or the model's quote when it was found in the filing.`;
+  const tb = $("rows");
+  tb.replaceChildren();
+  for (const f of d.fields) {
+    const tr = el("tr");
+    tr.appendChild(el("td", {}, f.field));
+    const val = el("td", { class: "num" }, fmt(f.value, f.field));
+    if (f.value_changed) val.appendChild(el("div", { class: "note" }, "corrected from source"));
+    tr.appendChild(val);
+    tr.appendChild(el("td", { class: "num" }, fmt(f.label, f.field)));
+    const [txt, cls] = BADGES[f.class] || [f.class, "b-na"];
+    const res = el("td");
+    res.appendChild(el("span", { class: "badge " + cls }, txt));
+    if (f.answered && f.grounded === 0) res.appendChild(el("div", { class: "note" }, "ungrounded"));
+    tr.appendChild(res);
+    const src = f.source_line;
+    tr.appendChild(el("td", { class: "src" + (src ? "" : " none") },
+      src || (f.quote ? `quote not in filing: ${f.quote}` : "no source")));
+    tb.appendChild(tr);
+  }
+}
+
+function guard(fn) {
+  return () => fn().catch((e) => showMessage(e.message, true));
+}
+$("run").addEventListener("change", guard(loadRun));
+$("filing").addEventListener("change", guard(loadFiling));
+guard(loadRuns)();
+</script>
+</body>
+</html>

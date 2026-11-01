@@ -38,6 +38,18 @@ def classify(pred, label):
     return "wrong_other"
 
 
+def summarize(rows):
+    """Headline metrics over labeled items, each with class, answered and grounded keys."""
+    n = len(rows)
+    ans = [r for r in rows if r["answered"]]
+    c = Counter(r["class"] for r in rows)
+    return {"n": n, "accuracy": c["correct"] / n, "accuracy_tolerant": (c["correct"] + c["near_miss"]) / n,
+            "coverage": len(ans) / n,
+            "ungrounded": (sum(1 for r in ans if not r["grounded"]) / len(ans)) if ans else 0.0,
+            "confident_wrong": (sum(1 for r in ans if r["class"] != "correct") / len(ans)) if ans else 0.0,
+            "classes": c}
+
+
 def load_predictions(path):
     meta, preds = {}, {}
     for line in Path(path).read_text(encoding="utf-8").splitlines():
@@ -68,16 +80,6 @@ def evaluate(run_name, data_dir="data", report_dir="reports"):
 
     if not items:
         raise SystemExit("No overlap between predictions and labels — check filing ids / run name.")
-
-    def summarize(rows):
-        n = len(rows)
-        ans = [r for r in rows if r["answered"]]
-        c = Counter(r["class"] for r in rows)
-        return {"n": n, "accuracy": c["correct"] / n, "accuracy_tolerant": (c["correct"] + c["near_miss"]) / n,
-                "coverage": len(ans) / n,
-                "ungrounded": (sum(1 for r in ans if not r["grounded"]) / len(ans)) if ans else 0.0,
-                "confident_wrong": (sum(1 for r in ans if r["class"] != "correct") / len(ans)) if ans else 0.0,
-                "classes": c}
 
     overall = summarize(items)
     by_field = defaultdict(list)

@@ -1,4 +1,4 @@
-"""Command line: finextract {download,label,extract,evaluate,verify,demo}"""
+"""Command line: finextract {download,label,extract,evaluate,verify,import,serve,demo}"""
 import argparse
 import json
 import shutil
@@ -45,6 +45,15 @@ def main(argv=None):
     vf = sub.add_parser("verify", help="snap each answer to its real filing line (offline, no LLM)")
     vf.add_argument("--run", required=True)
 
+    im = sub.add_parser("import", help="load a predictions run + labels into the SQLite store")
+    im.add_argument("--run", required=True)
+    im.add_argument("--db", default=None, help="default: <data-dir>/finextract.db")
+
+    sv = sub.add_parser("serve", help="start the API + dashboard (needs the [api] extra)")
+    sv.add_argument("--host", default="127.0.0.1", help="default 127.0.0.1 (this machine only)")
+    sv.add_argument("--port", type=int, default=8000)
+    sv.add_argument("--db", default=None)
+
     sub.add_parser("demo", help="run the whole pipeline offline on a bundled sample filing")
 
     a = p.parse_args(argv)
@@ -75,6 +84,23 @@ def main(argv=None):
     elif a.cmd == "verify":
         from .verify import verify_run
         verify_run(a.run, a.data_dir)
+
+    elif a.cmd == "import":
+        from .store import Store
+        db = a.db or str(Path(a.data_dir) / "finextract.db")
+        n = Store(db).import_run(a.run, a.data_dir)
+        print(f"  imported {n} fields from run {a.run} into {db}")
+
+    elif a.cmd == "serve":
+        try:
+            import uvicorn
+            from .api import create_app
+        except ImportError:
+            raise SystemExit('The service needs the api extra: pip install -e ".[api]"')
+        if a.host not in ("127.0.0.1", "localhost", "::1"):
+            print(f"  warning: binding {a.host} exposes the API beyond this machine; there is no auth")
+        print(f"  dashboard: http://{a.host}:{a.port}/")
+        uvicorn.run(create_app(a.data_dir, a.db), host=a.host, port=a.port)
 
     elif a.cmd == "demo":
         run_demo(a.data_dir)
