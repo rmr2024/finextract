@@ -199,12 +199,36 @@ The 6 ungrounded answers (each one checked against `data/text`):
 Other errors: 2 missing (MSFT total liabilities and NKE total assets, the same 2 rows retrieval
 missed for the heuristic), plus CAT cash, a grounded wrong-concept answer (`near_miss`).
 
-### Test set (gpt-oss): in progress
+### Test set (gpt-oss, held out)
 
-`test5_gptoss_v1` covers JNJ WMT HD MCD ORCL with the same settings and prompt v1 as dev. It has 33 of
-50 fields done (JNJ, WMT and HD complete, MCD 3 of 10, ORCL 0). Groq's free-tier daily token limit
-stopped it cleanly on 2026-10-31. Test results and `verify` on test are only reported once all 50
-fields are done.
+The 5 held-out tickers are JNJ WMT HD MCD ORCL, with 44 labeled fields. Run `test5_gptoss_v1` used the
+same settings as dev and prompt v1, and finished 50/50 on 2026-11-01. The daily token limit stopped it
+twice; each time it was resumed with `--resume`. `verify` used the rules frozen on dev, unchanged.
+Only aggregates were looked at.
+
+| Run | Set | Exact | Within 0.5% | Coverage | Ungrounded | Confident-wrong |
+|---|---|---|---|---|---|---|
+| Heuristic v2 | dev | 68.2% | 68.2% | 77.3% | 0.0% | 11.8% |
+| gpt-oss v1 | dev | 81.8% | 88.6% | 95.5% | 14.3% | 14.3% |
+| gpt-oss v1 + verify | dev | 93.2% | 95.5% | 95.5% | 0.0% | 2.4% |
+| Heuristic v2 (same 5 tickers) | test | 59.1% | 59.1% | 84.1% | 0.0% | 29.7% |
+| gpt-oss v1 | test | 75.0% | 75.0% | 95.5% | 14.3% | 21.4% |
+| gpt-oss v1 + verify | **test** | **84.1%** | 84.1% | 95.5% | **0.0%** | 11.9% |
+
+**Dev vs test gap:**
+- **Test filings are harder for everyone.** The heuristic, which was never tuned on test, also drops
+  9.1 points (68.2% to 59.1%). So most of the LLM's raw drop (81.8% to 75.0%) is these filings, not
+  overfitting.
+- **The test errors are a different kind.** Dev's raw errors were mostly copy slips (3 near-misses and
+  3 wrong). Test has no near-misses and 9 wrong answers.
+- **Snapping generalizes, but only to copy errors.** On test it fixed 4 items and broke 0; on dev it
+  fixed 5 and broke 0. The 5 test answers still wrong (4 wrong, 1 prior-year column) are probably
+  wrong lines or concepts, which snapping cannot fix. The individual test errors have not been
+  inspected, so this is an inference.
+- **Dev is optimistic by design.** The two snap rules were tightened on dev errors, so dev's 93.2% is
+  partly fit to dev. 84.1% is the honest held-out number.
+- **The samples are small.** n=44, so one field is about 2.3 points, and a 95% interval on 84.1% is
+  roughly ±11 points. The differences above are directional, not precise.
 
 ### Stage 2: snap to source (offline)
 

@@ -13,5 +13,5 @@ data/demo/
 build/
 logs/
 
-# in-progress test runs (commit results only when a run is complete)
-data/predictions/test5_*
+data/finextract.db
+data/finextract.db-*
