@@ -1,59 +1,60 @@
-# Next steps (updated 2026-10-31, Day 4)
+# Next steps (updated 2026-11-01, Day 5)
 
 ## Done
 
-- **Exact-match accuracy is the headline.** The old 0.5% figure is kept as `accuracy_tolerant`.
-- **Dev results (gpt-oss-120b):**
-  - `dev_gptoss_v1`: 81.8% exact.
-  - After `finextract verify` (snap to source, offline): **93.2% exact, 0% ungrounded, 2.4%
-    confident-wrong**.
-- **Prompt versioning:**
-  - `FINEXTRACT_PROMPT_VERSION` selects the wording: v1 is the default, v2 has cash excluding
-    restricted cash.
-  - Every run and row stores `prompt_version` and `prompt_hash`, and `--resume` refuses a mismatch.
-  - Rows from before hashes existed count as v1 only if their run started before
-    2026-10-31 18:21 +05:30.
-  - The v1 hash is `5959365c4c18`.
-- **Label QA:** 15 labels (10 dev, 5 test) checked against the filing text, 0 mismatches; marked
-  `verified=yes` in `data/labels.csv`.
-- **Test run:** `test5_gptoss_v1` has **33 of 50 fields** done (JNJ, WMT, HD complete; MCD 3/10;
-  ORCL 0/10). Groq's daily token limit stopped it cleanly at 19:15. The retry-after of 997 s suggests the
-  quota refills gradually at about 8k tokens/hour. The remaining 17 fields need ~42k tokens, so run it
-  any time after ~5 hours, for example tomorrow.
-- **Repo:** https://github.com/rmr2024/finextract (MIT; author is the noreply address). The test5
-  predictions file and `logs/` are gitignored.
+- **Held-out test set** (JNJ WMT HD MCD ORCL, 44 labeled): `test5_gptoss_v1` complete at 50/50.
 
-## Tomorrow: the one command
+  | Test | Exact | Ungrounded | Confident-wrong |
+  |---|---|---|---|
+  | heuristic v2 | 59.1% | 0% | 29.7% |
+  | gpt-oss v1 | 75.0% | 14.3% | 21.4% |
+  | gpt-oss v1 + verify | **84.1%** | **0%** | 11.9% |
 
-Run this in a new PowerShell window in the project folder. It loads the Groq key from .env without
-printing it and resumes test5 with prompt v1.
+  Dev for comparison: 68.2%, 81.8% and 93.2%. On test, verify fixed 4 items and broke 0 (dev: 5 and
+  0). See the README for why the gap exists.
+- **Stage 3 part 1: service.**
+  - SQLite store; `finextract import --run X`.
+  - FastAPI endpoints: `/runs`, `/runs/{run}/summary`, `/runs/{run}/filings[/{id}]`, `POST /extract`
+    as a background job, `/jobs/{id}`.
+  - Dashboard at `/`; `finextract serve` binds 127.0.0.1.
+  - Dockerfile, not built yet: Docker isn't installed here.
+- **Operational note:** a run started with `Start-Process` from Claude's shell was killed twice. Runs
+  launched as a tracked background job, or from your own terminal, finish normally.
+
+## Stage 3 part 2
+
+1. **Async batch jobs.** Today, `POST /extract` handles one ticker per job and runs in FastAPI's
+   in-process background tasks, so jobs die with the server, and two jobs on the same run can race.
+   - Add `POST /batch {tickers[], run, provider}` with a persistent queue: the `jobs` table as the
+     queue plus one worker thread or process.
+   - Allow one job per run at a time, retry failed fields with `--resume`, and record per-ticker
+     progress in `/jobs/{id}`.
+   - Treat the provider's daily limit as "paused until X", not "failed".
+2. **Caching.**
+   - Key LLM responses by (prompt_hash, model, filing, field, chunk ids) in SQLite, so re-runs and
+     re-scoring cost no tokens.
+   - Cache BM25 indexes per filing, since they're rebuilt for every run.
+   - Add ETag or Cache-Control headers on the summary endpoints.
+3. **CI for Docker.**
+   - A GitHub Actions job runs `docker build`, then starts the container and smoke-tests `/runs` and
+     `/` with curl.
+   - Optionally scan the image (Trivy) and confirm no `.env` or data files ended up in it.
+4. Smaller items:
+   - auth, or keep localhost-only;
+   - pagination on `/runs/{run}/filings`;
+   - re-import a run automatically when its jsonl changes;
+   - handle `httpx` vs `httpx2` for Starlette's TestClient, which warns about httpx deprecation.
+
+## Later (from earlier stages)
+
+- `dev_gptoss_v2` (prompt v2: cash excludes restricted cash), ~125k tokens.
+- Retrieval fixes for the 2 missing fields on each of dev and test.
+- More label QA: 15 checked so far, 0 mismatches.
+
+## Commands
 
 ```powershell
-$k = (Get-Content .env | Where-Object { $_ -match '^\s*GROQ_API_KEY\s*=' } | Select-Object -First 1) -replace '^\s*GROQ_API_KEY\s*=\s*','' ; $env:OPENAI_API_KEY = $k.Trim().Trim('"'); $env:OPENAI_BASE_URL = "https://api.groq.com/openai/v1"; $env:FINEXTRACT_MIN_INTERVAL = "25"; $env:FINEXTRACT_REASONING_EFFORT = "low"; $env:FINEXTRACT_PROMPT_VERSION = "v1"; .\.venv\Scripts\Activate.ps1; finextract extract --provider openai --model openai/gpt-oss-120b --tickers JNJ WMT HD MCD ORCL --workers 1 --k 4 --resume --run test5_gptoss_v1 *>> logs\groq_test5.log
+pip install -e ".[api]"
+finextract import --run test5_gptoss_v1_verified
+finextract serve        # http://127.0.0.1:8000/
 ```
-
-## Then (only once all 50 fields are done)
-
-1. `finextract evaluate --run test5_gptoss_v1`
-2. `finextract verify --run test5_gptoss_v1`, using the frozen rules with no changes for test, then
-   `finextract evaluate --run test5_gptoss_v1_verified`.
-3. Compare aggregates on the same 5 tickers: heuristic v2 (`test_heuristic_v2`, filtered to JNJ WMT HD
-   MCD ORCL) vs gpt-oss v1 vs gpt-oss v1 + verify. Report exact, tolerant, coverage, ungrounded and
-   confident-wrong. Explain any dev vs test gap. Don't inspect individual test errors.
-4. Commit the test5 results once complete: remove the `data/predictions/test5_*` line from
-   .gitignore, or add the files with `git add -f`.
-
-## Later
-
-- `dev_gptoss_v2` (prompt v2) to check whether the cash wording fixes CAT cash without side effects
-  (~125k tokens, one day of quota).
-- Retrieval: the 2 dev misses (MSFT total liabilities, NKE total assets) never reach the model. Raise k,
-  or boost balance-sheet and cash-flow headings.
-- Label QA: check more labels to tighten the bound (0/15 gives a one-sided 95% upper bound of ~18%).
-
-## Ollama timings (reference; `--limit 1`, AAPL, `--k 4`, CPU only)
-
-| Model | sec/field | JSON parse |
-|---|---|---|
-| qwen3.5:9b-q4_K_M | 117.1 (3 timeouts at the old 120 s limit) | 7/10 |
-| gemma4:e4b-it-q4_K_M | 83.3 | 10/10 |

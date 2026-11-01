@@ -287,6 +287,54 @@ both v1 (hash `5959365c4c18`). v2 has not been run yet.
 - **Stage 4 — depth:** 10-Qs and credit agreements, multi-model cost/accuracy comparison,
   error analysis by sector and document length, publish the labeled dataset.
 
+## Running the service
+
+A small API and a one-page dashboard sit on top of a local SQLite store, `data/finextract.db`
+(gitignored).
+
+```powershell
+pip install -e ".[api]"                          # fastapi, uvicorn, httpx
+finextract import --run dev_gptoss_v1            # load predictions + labels into SQLite
+finextract import --run dev_gptoss_v1_verified
+finextract serve                                 # http://127.0.0.1:8000/  (this machine only)
+```
+
+Open http://127.0.0.1:8000/ and pick a run and a filing. Each field shows the extracted value, the
+label, a correct/wrong badge, and the filing line the value came from: the snapped line for verified
+runs, or the model's quote when it was found in the filing. The page follows the system light or
+dark mode. The API docs are at http://127.0.0.1:8000/docs.
+
+| Endpoint | What it does |
+|---|---|
+| `GET /runs` | Imported runs |
+| `GET /runs/{run}/summary` | Same metrics as `finextract evaluate`: exact, tolerant, coverage, ungrounded, confident-wrong |
+| `GET /runs/{run}/filings` | Filings in a run, with correct and wrong counts |
+| `GET /runs/{run}/filings/{id}` | Every field: value, label, error class, quote, verified source line |
+| `POST /extract` | `{"ticker", "run", "provider"}` starts a background job and returns `job_id` |
+| `GET /jobs/{id}` | `queued`, `running`, `done` or `failed`, with a message |
+
+`POST /extract` details:
+- It defaults to the free heuristic and only re-runs filings that are already downloaded. The service
+  never contacts SEC.
+- `anthropic` or `openai` are accepted only if their environment variables are already set in the
+  shell that started the server; otherwise you get a 400.
+- Jobs append to the named run (`--resume` semantics), so other filings in it are kept.
+- Run names are restricted to `[A-Za-z0-9_.-]`, because they become file names.
+
+`serve` binds 127.0.0.1 by default: the API has no authentication, and `POST /extract` can spend
+API quota.
+
+**Docker** (the image is not built in CI yet):
+
+```powershell
+docker build -t finextract .
+docker run --rm -p 127.0.0.1:8000:8000 -v "${PWD}/data:/app/data" finextract
+```
+
+Inside the container the server must bind 0.0.0.0. Publishing on `127.0.0.1:` keeps it local. No
+secrets are baked into the image (`.env` is in `.dockerignore`); pass `--env-file .env` only if you
+want LLM jobs.
+
 ## Project layout
 
 ```
@@ -299,6 +347,9 @@ src/finextract/
   llm.py        heuristic / Anthropic / OpenAI-compatible extractors
   extract.py    pipeline + grounding evidence
   evaluate.py   metrics, error classes, reports
+  verify.py     Stage 2 snap-to-source (offline post-processing)
+  store.py      SQLite store for runs, fields, jobs
+  api.py        FastAPI service (+ static/index.html dashboard)
   sample/       synthetic 10-K + XBRL facts for tests and the demo
 tests/          offline test suite
 ```
