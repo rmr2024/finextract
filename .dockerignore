@@ -1,0 +1,23 @@
+# secrets and local environments
+.env
+.env.*
+.venv/
+venv/
+
+# large or reproducible data, logs, local DB
+data/raw/
+data/cache/
+data/text/
+data/demo/
+data/finextract.db*
+logs/
+
+# build and tool output
+build/
+dist/
+*.egg-info/
+__pycache__/
+.pytest_cache/
+.git/
+.github/
+.claude/
