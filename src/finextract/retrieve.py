@@ -43,7 +43,22 @@ class BM25:
             s = self.score(query, i)
             if s <= 0:
                 continue
-            density = len(_NUM.findall(d)) / max(1, len(d) / 100)
-            scored.append((s * (1 + numeric_boost * min(density, 5)), i))
+            scored.append((s * table_boost(d, numeric_boost), i))
         scored.sort(reverse=True)
         return [i for _, i in scored[:k]]
+
+
+def table_boost(chunk, numeric_boost=0.15):
+    """Score multiplier for chunks dense with numbers (numbers per 100 chars, capped at 5)."""
+    density = len(_NUM.findall(chunk)) / max(1, len(chunk) / 100)
+    return 1 + numeric_boost * min(density, 5)
+
+
+RETRIEVERS = ("bm25",)
+
+
+def make_retriever(name, chunks, **kw):
+    """Build a retriever with a search(query, k, numeric_boost) method over `chunks`."""
+    if name == "bm25":
+        return BM25(chunks)
+    raise ValueError(f"unknown retriever {name!r}; expected one of {RETRIEVERS}")
