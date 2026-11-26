@@ -68,8 +68,7 @@ truncated. The retriever was chosen on dev only, then test5 and test15 were each
   `--k 6`.
 
 The full table, including recall@3 and @10, is in
-[reports/retrieval_comparison.md](reports/retrieval_comparison.md). No extraction run with hybrid has
-been made yet.
+[reports/retrieval_comparison.md](reports/retrieval_comparison.md).
 
 ## Architecture
 

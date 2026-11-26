@@ -127,7 +127,7 @@ Dev result: 5 labeled values became correct and none were broken. Exact accuracy
 **Prompt versioning.** Field descriptions are part of the prompt. `FINEXTRACT_PROMPT_VERSION` selects
 the wording: v1 is the default; v2 makes `cash` exclude restricted cash. Every run and row stores
 `prompt_version` and `prompt_hash`, and `--resume` refuses to mix them. Both LLM runs are v1, hash
-`5959365c4c18`. v2 has not been run.
+`5959365c4c18`.
 
 **Label QA.** 15 labels (10 dev, 5 test) were checked against the filing text before any predictions
 were inspected. 0 mismatched, which gives a one-sided 95% upper bound of about 18% on the label error
