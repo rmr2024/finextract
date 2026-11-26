@@ -10,6 +10,8 @@ model computed from two real lines, which verify rejected. Snap-to-source verifi
 the number from the real filing line. That fixes these copying errors, taking held-out exact accuracy
 from 75.0% to 84.1% with 0 correct answers broken.
 
+![Dashboard: per-field values, labels and source lines for a verified run](docs/dashboard.png)
+
 ## Results
 
 Exact match after scale against XBRL labels. n = 44 labeled fields per set, so one field is about
@@ -40,6 +42,35 @@ Exact match after scale against XBRL labels. n = 44 labeled fields per set, so o
 The full breakdown is in [docs/DEVLOG.md](docs/DEVLOG.md), and a plain-language write-up is in
 [docs/WRITEUP.md](docs/WRITEUP.md).
 
+## Retrieval
+
+Retrieval-only benchmark, no LLM (`finextract retrieval-eval --split dev --retriever hybrid`). A chunk
+is relevant if a table cell equals the gold value after the verifier's normalisation. Percentages are
+truncated. The retriever was chosen on dev only, then test5 and test15 were each run once.
+
+| Split | Retriever | Recall@4 | Recall@6 | MRR@10 |
+|---|---|---|---|---|
+| dev | BM25 | 95.4% (42/44) | 95.4% (42/44) | 0.826 |
+| dev | embeddings | 63.6% (28/44) | 77.2% (34/44) | 0.532 |
+| dev | hybrid (RRF) | 93.1% (41/44) | 100.0% (44/44) | 0.843 |
+| test5 | BM25 | 95.4% (42/44) | 95.4% (42/44) | 0.839 |
+| test5 | embeddings | 70.4% (31/44) | 81.8% (36/44) | 0.612 |
+| test5 | hybrid (RRF) | 95.4% (42/44) | 97.7% (43/44) | 0.871 |
+| test15 | BM25 | 88.3% (121/137) | 89.7% (123/137) | 0.773 |
+| test15 | embeddings | 64.2% (88/137) | 72.2% (99/137) | 0.507 |
+| test15 | hybrid (RRF) | 88.3% (121/137) | 91.9% (126/137) | 0.757 |
+
+- **Embeddings alone (all-MiniLM-L6-v2) are worse than BM25 everywhere.**
+- **Hybrid** (Reciprocal Rank Fusion of BM25 and embeddings, k=60, times table_boost) wins at
+  recall@6: +2, +1 and +3 fields on dev, test5 and test15.
+- **At k=4, which the LLM runs use, hybrid only ties BM25 on test.** Its MRR is lower on test15.
+- **The gain is 1–3 fields, small at n=44.** BM25 stays the default; use `--retriever hybrid` with
+  `--k 6`.
+
+The full table, including recall@3 and @10, is in
+[reports/retrieval_comparison.md](reports/retrieval_comparison.md). No extraction run with hybrid has
+been made yet.
+
 ## Architecture
 
 ```mermaid
@@ -50,7 +81,7 @@ flowchart LR
     end
     H --> T["Text + table rows<br/>(hidden iXBRL removed,<br/>scale hints carried forward)"]
     T --> C[Line-safe chunks]
-    C --> R[BM25 retrieval per field]
+    C --> R["Retrieval per field<br/>BM25 / embeddings / hybrid"]
     R --> M{"Extractor<br/>heuristic / LLM"}
     M --> P["value + scale + quote"]
     P --> V["verify: snap to source<br/>(offline, no LLM)"]
@@ -129,6 +160,9 @@ Useful settings:
 **Service and dashboard:**
 
 ```bash
+pip install -e ".[embed]"                            # optional: embed / hybrid retrievers
+finextract retrieval-eval --split dev --retriever hybrid
+
 pip install -e ".[api]"
 finextract import --run dev_gptoss_verified          # load a run + labels into data/finextract.db
 finextract serve                                     # http://127.0.0.1:8000/  (docs at /docs)
@@ -155,6 +189,7 @@ Service behaviour:
 src/finextract/
   edgar.py      SEC client (rate-limited, cached)        labels.py    XBRL ground truth
   textproc.py   HTML -> text, tables, chunking           retrieve.py  BM25 (no dependencies)
+  embed_retrieve.py  embedding + hybrid retrievers      retrieval_eval.py  recall@k / MRR benchmark
   llm.py        heuristic / Anthropic / OpenAI-compatible extractors, prompt versions
   extract.py    pipeline, grounding, resume              verify.py    snap-to-source
   evaluate.py   metrics + error classes                  store.py     SQLite store
@@ -176,7 +211,7 @@ green, and don't run SEC downloads or LLM calls in tests.
   where it is actually needed.
 - **Concept checks.** Reject lines whose label doesn't fit the field definition, such as consolidated
   versus attributable figures, which are the main errors left.
-- **Retrieval.** The 2 misses on each set never reach the extractor.
+- **Extraction with hybrid retrieval.** Measure end to end at `--k 6` on test5, with the same model and prompt as `test5_gptoss_v1`.
 
 The technical roadmap is in [ROADMAP.md](ROADMAP.md), and release history in
 [CHANGELOG.md](CHANGELOG.md).
