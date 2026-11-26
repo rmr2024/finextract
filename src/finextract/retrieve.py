@@ -54,11 +54,18 @@ def table_boost(chunk, numeric_boost=0.15):
     return 1 + numeric_boost * min(density, 5)
 
 
-RETRIEVERS = ("bm25",)
+RETRIEVERS = ("bm25", "embed", "hybrid")
 
 
 def make_retriever(name, chunks, **kw):
-    """Build a retriever with a search(query, k, numeric_boost) method over `chunks`."""
+    """Build a retriever with a search(query, k, numeric_boost) method over `chunks`.
+
+    embed/hybrid accept model, encode, cache_dir and cache_key (see embed_retrieve.py); bm25 ignores them.
+    """
     if name == "bm25":
         return BM25(chunks)
+    if name in ("embed", "hybrid"):
+        from .embed_retrieve import EmbeddingRetriever, HybridRetriever
+        cls = EmbeddingRetriever if name == "embed" else HybridRetriever
+        return cls(chunks, **kw)
     raise ValueError(f"unknown retriever {name!r}; expected one of {RETRIEVERS}")
