@@ -100,3 +100,43 @@ def test_real_model_smoke():
     pytest.importorskip("sentence_transformers")
     r = EmbeddingRetriever(CHUNKS)
     assert r.search("total assets on the balance sheet", k=1) == [1]
+
+
+def _sample_rec():
+    from pathlib import Path
+    import finextract
+    return {"id": "EXWD", "ticker": "EXWD", "report_date": "2026-06-30",
+            "path": str(Path(finextract.__file__).parent / "sample" / "sample_10k.html")}
+
+
+def test_run_records_retriever_and_resume_refuses_mismatch(tmp_path):
+    import json
+    from finextract.extract import run_extraction
+    from finextract.llm import HeuristicProvider
+    run_extraction([_sample_rec()], HeuristicProvider(), "r", workers=1, data_dir=str(tmp_path))
+    lines = [json.loads(l) for l in (tmp_path / "predictions" / "r.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert lines[0]["_meta"]["retriever"] == "bm25" and lines[0]["_meta"]["embed_model"] is None
+    assert all(r["retriever"] == "bm25" for r in lines[1:])
+    with pytest.raises(SystemExit, match="retrieved with bm25"):
+        run_extraction([_sample_rec()], HeuristicProvider(), "r", workers=1, data_dir=str(tmp_path),
+                       resume=True, retriever="hybrid", embed_model="fake")
+    run_extraction([_sample_rec()], HeuristicProvider(), "r", workers=1, data_dir=str(tmp_path), resume=True)
+
+
+def test_legacy_rows_count_as_bm25(tmp_path):
+    import json
+    from finextract.extract import _check_retriever
+    p = tmp_path / "old.jsonl"
+    p.write_text(json.dumps({"_meta": {"run": "old"}}) + "\n"
+                 + json.dumps({"filing_id": "X", "field": "revenue", "error": None}) + "\n", encoding="utf-8")
+    _check_retriever(p, "bm25", None)
+    with pytest.raises(SystemExit):
+        _check_retriever(p, "embed", "m")
+
+
+def test_extract_filing_with_injected_embed_retriever(tmp_path):
+    from finextract.extract import extract_filing
+    from finextract.llm import HeuristicProvider
+    rows = extract_filing(_sample_rec(), HeuristicProvider(), text_cache=str(tmp_path), retriever="hybrid",
+                          retriever_kw={"model": "fake", "encode": fake_encode})
+    assert {r["field"]: r["value"] for r in rows}["revenue"] == 12412e6

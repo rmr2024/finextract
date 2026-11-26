@@ -38,6 +38,8 @@ def main(argv=None):
     e.add_argument("--fields", nargs="*", default=None, choices=list(FIELDS_BY_NAME))
     e.add_argument("--k", type=int, default=6, help="chunks retrieved per field")
     e.add_argument("--workers", type=int, default=4)
+    e.add_argument("--retriever", default="bm25", choices=RETRIEVERS, help="chunk retriever (default bm25)")
+    e.add_argument("--embed-model", default=None, help="sentence-transformers model for embed/hybrid")
     e.add_argument("--resume", action="store_true", help="skip fields already done in this run; retry failed ones")
 
     v = sub.add_parser("evaluate", help="score a run")
@@ -81,7 +83,8 @@ def main(argv=None):
         fields = [FIELDS_BY_NAME[f] for f in a.fields] if a.fields else FIELDS
         filings = _load_filings(a.data_dir, a.limit, a.tickers)
         print(f"Extracting {len(fields)} fields from {len(filings)} filings with {provider.name}...")
-        run_extraction(filings, provider, a.run, fields, a.k, a.workers, a.data_dir, resume=a.resume)
+        run_extraction(filings, provider, a.run, fields, a.k, a.workers, a.data_dir, resume=a.resume,
+                       retriever=a.retriever, embed_model=a.embed_model)
 
     elif a.cmd == "evaluate":
         from .evaluate import evaluate
