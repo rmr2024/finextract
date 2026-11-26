@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.1.0 (2026-11-26)
+
+**Added**
+- `--retriever {bm25,embed,hybrid}` on `extract` (default `bm25`, so results are unchanged).
+  - The retriever and embedding model are recorded per run and per row.
+  - `--resume` refuses a retriever mismatch.
+- `EmbeddingRetriever`: sentence-transformers, `all-MiniLM-L6-v2` by default, with per-filing
+  embeddings cached on disk.
+- `HybridRetriever`: RRF (k=60) of BM25 and embeddings, times table_boost.
+- The optional `embed` extra.
+- `finextract retrieval-eval --split {dev,test5,test15}`: a retrieval-only benchmark (recall@k and
+  MRR@10, with relevance judged by the verifier's normalisation). Reports in `reports/retrieval_*`.
+- A dashboard screenshot in the README.
+
+**Results** (winner chosen on dev only):
+- Hybrid beats BM25 at recall@6:
+  - dev 100.0% (44/44) vs 95.4% (42/44);
+  - test5 97.7% (43/44) vs 95.4% (42/44);
+  - test15 91.9% (126/137) vs 89.7% (123/137).
+- At recall@4, hybrid only ties BM25 on test5 and test15.
+- Embeddings alone are worse than BM25 on every split.
+- BM25 remains the default.
+
 ## v1.0.0 (2026-11-01)
 
 First complete release.

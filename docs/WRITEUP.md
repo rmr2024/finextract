@@ -87,6 +87,31 @@ On the held-out test set, verify turned 4 wrong answers into correct ones, broke
 ungrounded answers from 14.3% to 0%. The gap between dev and test is real: the test filings were
 harder for the heuristic too, and the dev rules were partly fit to dev. 84.1% is the number I'd quote.
 
+## Does better retrieval help?
+
+Two extraction misses on each set never reached the model, because the right chunk wasn't retrieved.
+So I measured retrieval on its own, with no LLM: does the top-k contain a chunk with the gold value?
+I compared BM25 with sentence embeddings (all-MiniLM-L6-v2) and a hybrid of the two (Reciprocal Rank
+Fusion). I chose the winner on dev only, before running test.
+
+| Split | Retriever | Recall@4 | Recall@6 | MRR@10 |
+|---|---|---|---|---|
+| dev | BM25 | 95.4% (42/44) | 95.4% (42/44) | 0.826 |
+| dev | embeddings | 63.6% (28/44) | 77.2% (34/44) | 0.532 |
+| dev | hybrid (RRF) | 93.1% (41/44) | 100.0% (44/44) | 0.843 |
+| test5 | BM25 | 95.4% (42/44) | 95.4% (42/44) | 0.839 |
+| test5 | embeddings | 70.4% (31/44) | 81.8% (36/44) | 0.612 |
+| test5 | hybrid (RRF) | 95.4% (42/44) | 97.7% (43/44) | 0.871 |
+| test15 | BM25 | 88.3% (121/137) | 89.7% (123/137) | 0.773 |
+| test15 | embeddings | 64.2% (88/137) | 72.2% (99/137) | 0.507 |
+| test15 | hybrid (RRF) | 88.3% (121/137) | 91.9% (126/137) | 0.757 |
+
+Embeddings alone were clearly worse: financial tables are numbers and short labels, not prose. The
+hybrid found 1–3 more relevant chunks in the top 6 than BM25 on every split. But it did so by moving
+some correct chunks *down* from the top 3, so at k=4 (what my LLM runs used) it only tied BM25 on the
+test splits. That's a modest, honest result: hybrid helps if you retrieve 6 chunks, and does little at
+4.
+
 ## Limitations
 
 - **The sample is small.** 44 labeled fields per set, so roughly ±11 points.
