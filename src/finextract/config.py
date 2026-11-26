@@ -90,6 +90,9 @@ def field_description(f, version=None):
 DEV_TICKERS = ["AAPL", "MSFT", "KO", "NKE", "CAT"]
 TEST_TICKERS = ["JNJ", "PFE", "WMT", "COST", "HD", "PEP", "PG", "MCD",
                 "DIS", "NFLX", "INTC", "CSCO", "ORCL", "IBM", "UPS"]
+# The 5-filing held-out subset the LLM runs (test5_*) use.
+TEST5_TICKERS = ["JNJ", "WMT", "HD", "MCD", "ORCL"]
+SPLITS = {"dev": DEV_TICKERS, "test5": TEST5_TICKERS, "test15": TEST_TICKERS}
 
 # A default, sector-diverse set of large US filers. Edit freely.
 DEFAULT_TICKERS = [

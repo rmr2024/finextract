@@ -14,7 +14,7 @@ from pathlib import Path
 from .config import FIELDS, LEGACY_V1_CUTOFF
 from .llm import DailyLimitReached, prompt_fingerprint
 from .numbers import apply_scale, find_numbers, normalize_ws, numbers_match, parse_number
-from .retrieve import BM25
+from .retrieve import make_retriever
 from .textproc import chunk_text, load_filing_text
 
 
@@ -27,14 +27,18 @@ def grounding(value_raw, quote, full_text_norm):
     return quote_found, number_in_quote
 
 
-def extract_filing(rec, provider, fields=FIELDS, k=6, text_cache="data/text", on_row=None, stop=None):
+def extract_filing(rec, provider, fields=FIELDS, k=6, text_cache="data/text", on_row=None, stop=None,
+                   retriever="bm25", retriever_kw=None):
     """Extract each field; `on_row` sees every row as it is made, `stop` (an Event) ends early."""
     if not fields:
         return []
     text = load_filing_text(rec["path"], text_cache)
     text_norm = normalize_ws(text)
     chunks = chunk_text(text)
-    index = BM25(chunks)
+    kw = dict(retriever_kw or {})
+    if retriever != "bm25":
+        kw.setdefault("cache_key", rec["id"])
+    index = make_retriever(retriever, chunks, **kw)
     results = []
     for f in fields:
         if stop is not None and stop.is_set():
@@ -101,7 +105,24 @@ def _check_prompt(path, version, phash):
                          f"{version} ({phash}). Set FINEXTRACT_PROMPT_VERSION to match, or start a new --run name.")
 
 
-def run_extraction(filings, provider, run_name, fields=FIELDS, k=6, workers=4, data_dir="data", resume=False):
+def _check_retriever(path, retriever, embed_model):
+    """Refuse to resume a run whose rows were retrieved differently (rows from before this was
+    recorded count as bm25, the only retriever that existed then)."""
+    rows = [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
+    seen = set()
+    for r in rows:
+        r = r.get("_meta", r)
+        if "filing_id" in r or "run" in r:
+            seen.add((r.get("retriever") or "bm25", r.get("embed_model") if r.get("retriever", "bm25") != "bm25" else None))
+    want = (retriever, embed_model if retriever != "bm25" else None)
+    if seen and seen != {want}:
+        made = ", ".join(f"{a}" + (f" ({b})" if b else "") for a, b in sorted(seen, key=str))
+        raise SystemExit(f"Can't resume {path.name}: it was retrieved with {made}, but this run uses "
+                         f"{want[0]}" + (f" ({want[1]})" if want[1] else "") + ". Use the same --retriever, or a new --run name.")
+
+
+def run_extraction(filings, provider, run_name, fields=FIELDS, k=6, workers=4, data_dir="data", resume=False,
+                   retriever="bm25", embed_model=None):
     """Rows are appended as they finish, so an interrupted run keeps its work.
 
     With resume=True, fields that already have an error-free row are skipped; failed ones are
@@ -111,12 +132,20 @@ def run_extraction(filings, provider, run_name, fields=FIELDS, k=6, workers=4, d
     out_path.parent.mkdir(parents=True, exist_ok=True)
     text_cache = str(Path(data_dir) / "text")
     version, phash = prompt_fingerprint()
+    retriever_kw = {}
+    if retriever != "bm25":
+        from .embed_retrieve import default_model
+        embed_model = embed_model or default_model()
+        retriever_kw = {"model": embed_model, "cache_dir": str(Path(data_dir) / "cache" / "embeddings")}
+    else:
+        embed_model = None
     if resume and out_path.exists():
         _check_prompt(out_path, version, phash)
+        _check_retriever(out_path, retriever, embed_model)
     done = _done_keys(out_path) if resume and out_path.exists() else set()
     if not (resume and out_path.exists()):
         meta = {"run": run_name, "provider": provider.name, "model": getattr(provider, "model", None), "k": k,
-                "prompt_version": version, "prompt_hash": phash,
+                "prompt_version": version, "prompt_hash": phash, "retriever": retriever, "embed_model": embed_model,
                 "started_at": datetime.now().astimezone().isoformat(timespec="seconds")}
         out_path.write_text(json.dumps({"_meta": meta}) + "\n", encoding="utf-8")
     if done:
@@ -124,13 +153,13 @@ def run_extraction(filings, provider, run_name, fields=FIELDS, k=6, workers=4, d
     lock, stop, all_rows = threading.Lock(), threading.Event(), []
 
     def write(row):
-        row.update(prompt_version=version, prompt_hash=phash)
+        row.update(prompt_version=version, prompt_hash=phash, retriever=retriever, embed_model=embed_model)
         with lock, out_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(row) + "\n")
 
     todo = [(r, [f for f in fields if (r["id"], f.name) not in done]) for r in filings]
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
-        futures = [pool.submit(extract_filing, r, provider, fs, k, text_cache, write, stop) for r, fs in todo]
+        futures = [pool.submit(extract_filing, r, provider, fs, k, text_cache, write, stop, retriever, retriever_kw) for r, fs in todo]
         for (rec, fs), fut in zip(todo, futures):
             try:
                 rows = fut.result()
